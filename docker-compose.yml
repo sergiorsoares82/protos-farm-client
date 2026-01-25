@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+  # Development service with hot-reload
+  vite-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: vite-frontend-dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: npm run dev -- --host 0.0.0.0
+    restart: unless-stopped
+    networks:
+      - frontend-network
+
+  # Production service with nginx
+  vite-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: vite-frontend-prod
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    networks:
+      - frontend-network
+    profiles:
+      - production
+
+networks:
+  frontend-network:
+    driver: bridge
