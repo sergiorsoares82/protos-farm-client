@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backend Connection Tester</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 { color: #333; }
+    .input-group {
+      margin: 15px 0;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-right: 10px;
+    }
+    button:hover { background: #45a049; }
+    button.secondary {
+      background: #2196F3;
+    }
+    button.secondary:hover {
+      background: #0b7dda;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 4px;
+      white-space: pre-wrap;
+      font-family: monospace;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Backend Connection Tester</h1>
+    <p>Use this tool to test if your backend is accessible and responding correctly.</p>
+    
+    <div class="input-group">
+      <label>Backend URL:</label>
+      <input type="text" id="apiUrl" value="http://localhost:3000" placeholder="http://localhost:3000">
+    </div>
+    
+    <div class="input-group">
+      <label>Email:</label>
+      <input type="email" id="email" value="test@example.com" placeholder="test@example.com">
+    </div>
+    
+    <div class="input-group">
+      <label>Password:</label>
+      <input type="password" id="password" value="password123" placeholder="password123">
+    </div>
+    
+    <button onclick="testConnection()">Test Backend Connection</button>
+    <button onclick="testCORS()" class="secondary">Test CORS</button>
+    
+    <div id="result"></div>
+  </div>
+
+  <script>
+    async function testConnection() {
+      const result = document.getElementById('result');
+      const apiUrl = document.getElementById('apiUrl').value;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      
+      result.innerHTML = '<div class="info">Testing connection to: ' + apiUrl + '/api/auth/login</div>';
+      
+      try {
+        const response = await fetch(apiUrl + '/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          result.innerHTML = `
+            <div class="success">
+              ✅ SUCCESS! Backend is working correctly.
+              
+Status: ${response.status}
+Response:
+${JSON.stringify(data, null, 2)}
+
+Your backend is properly configured!
+            </div>
+          `;
+        } else {
+          result.innerHTML = `
+            <div class="error">
+              ⚠️ Backend responded with error
+              
+Status: ${response.status}
+Response:
+${JSON.stringify(data, null, 2)}
+
+This might be normal if credentials are wrong.
+The important thing is that the backend is accessible!
+            </div>
+          `;
+        }
+      } catch (error) {
+        result.innerHTML = `
+          <div class="error">
+            ❌ CONNECTION FAILED
+            
+Error: ${error.message}
+
+Possible causes:
+1. Backend is not running
+2. CORS is not enabled (most likely)
+3. Wrong URL or port
+4. Firewall blocking the request
+
+Solutions:
+• Enable CORS in your backend
+• Or use Vite proxy (see FIX_CORS.md)
+• Make sure backend is running on the correct port
+          </div>
+        `;
+      }
+    }
+
+    async function testCORS() {
+      const result = document.getElementById('result');
+      const apiUrl = document.getElementById('apiUrl').value;
+      
+      result.innerHTML = '<div class="info">Testing CORS configuration...</div>';
+      
+      try {
+        const response = await fetch(apiUrl + '/api/auth/login', {
+          method: 'OPTIONS',
+        });
+        
+        const corsHeaders = {
+          'access-control-allow-origin': response.headers.get('access-control-allow-origin'),
+          'access-control-allow-methods': response.headers.get('access-control-allow-methods'),
+          'access-control-allow-headers': response.headers.get('access-control-allow-headers'),
+        };
+        
+        const hasCORS = corsHeaders['access-control-allow-origin'];
+        
+        if (hasCORS) {
+          result.innerHTML = `
+            <div class="success">
+              ✅ CORS is enabled!
+              
+CORS Headers:
+${JSON.stringify(corsHeaders, null, 2)}
+
+Your backend is properly configured for cross-origin requests.
+            </div>
+          `;
+        } else {
+          result.innerHTML = `
+            <div class="error">
+              ❌ CORS is NOT enabled
+              
+No CORS headers found in response.
+
+You need to enable CORS in your backend.
+See FIX_CORS.md for instructions.
+            </div>
+          `;
+        }
+      } catch (error) {
+        result.innerHTML = `
+          <div class="error">
+            ❌ CORS TEST FAILED
+            
+Error: ${error.message}
+
+The backend is not accessible or CORS is blocking the request.
+
+Quick Fix:
+1. Enable CORS in your backend
+2. Or use Vite proxy (see FIX_CORS.md)
+          </div>
+        `;
+      }
+    }
+
+    // Test on load
+    window.addEventListener('load', () => {
+      console.log('Backend Connection Tester loaded');
+      console.log('Click "Test Backend Connection" to verify your backend');
+    });
+  </script>
+</body>
+</html>
