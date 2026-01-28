@@ -348,6 +348,11 @@ export interface UpdateSeasonRequest {
   isActive?: boolean;
 }
 
+export interface SeasonFieldLink {
+  fieldId: string;
+  areaHectares: number;
+}
+
 // Management Account Types
 export enum AccountType {
   REVENUE = 'REVENUE',
@@ -963,6 +968,41 @@ class ApiService {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
+    await this.handleResponse<void>(response);
+  }
+
+  async getSeasonFieldLinks(seasonId: string): Promise<SeasonFieldLink[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/seasons/${seasonId}/fields`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: SeasonFieldLink[] }>(
+      response,
+    );
+    return data.data;
+  }
+
+  async upsertSeasonFieldLink(
+    seasonId: string,
+    fieldId: string,
+    areaHectares: number,
+  ): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/seasons/${seasonId}/fields`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ fieldId, areaHectares }),
+    });
+    await this.handleResponse<void>(response);
+  }
+
+  async deleteSeasonFieldLink(seasonId: string, fieldId: string): Promise<void> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/seasons/${seasonId}/fields/${fieldId}`,
+      {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+      },
+    );
     await this.handleResponse<void>(response);
   }
 

@@ -19,7 +19,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, CalendarRange, Pencil, Plus, Trash2 } from 'lucide-react';
-import { apiService, Season, CreateSeasonRequest, UpdateSeasonRequest } from '@/services/api';
+import {
+  apiService,
+  Season,
+  CreateSeasonRequest,
+  UpdateSeasonRequest,
+  Field,
+  SeasonFieldLink,
+} from '@/services/api';
 
 export const Seasons = () => {
   const [items, setItems] = useState<Season[]>([]);
@@ -28,6 +35,12 @@ export const Seasons = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Season | null>(null);
+
+  const [allFields, setAllFields] = useState<Field[]>([]);
+  const [showFieldsDialog, setShowFieldsDialog] = useState(false);
+  const [fieldsDialogSeason, setFieldsDialogSeason] = useState<Season | null>(null);
+  const [fieldsDialogLinks, setFieldsDialogLinks] = useState<SeasonFieldLink[]>([]);
+  const [fieldsDialogOriginalLinks, setFieldsDialogOriginalLinks] = useState<SeasonFieldLink[]>([]);
 
   const [formData, setFormData] = useState<CreateSeasonRequest>({
     name: '',
@@ -49,7 +62,16 @@ export const Seasons = () => {
   };
 
   useEffect(() => {
-    loadItems();
+    const init = async () => {
+      await loadItems();
+      try {
+        const fields = await apiService.getFields();
+        setAllFields(fields);
+      } catch (err) {
+        console.error('Failed to load fields for seasons page', err);
+      }
+    };
+    init();
   }, []);
 
   const validateForm = (): string | null => {
@@ -147,6 +169,44 @@ export const Seasons = () => {
     setIsEditDialogOpen(true);
   };
 
+  const openFieldsDialog = async (season: Season) => {
+    try {
+      setError(null);
+      const links = await apiService.getSeasonFieldLinks(season.id);
+      setFieldsDialogSeason(season);
+      setFieldsDialogLinks(links);
+      setFieldsDialogOriginalLinks(links);
+      setShowFieldsDialog(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load season fields');
+    }
+  };
+
+  const isFieldSelected = (fieldId: string) =>
+    fieldsDialogLinks.some((l) => l.fieldId === fieldId);
+
+  const getFieldAreaForDialog = (field: Field): number => {
+    const link = fieldsDialogLinks.find((l) => l.fieldId === field.id);
+    if (link) return link.areaHectares;
+    return Number(field.areaHectares);
+  };
+
+  const toggleFieldSelection = (field: Field, checked: boolean) => {
+    setFieldsDialogLinks((prev) => {
+      if (checked) {
+        if (prev.some((l) => l.fieldId === field.id)) return prev;
+        return [...prev, { fieldId: field.id, areaHectares: Number(field.areaHectares) }];
+      }
+      return prev.filter((l) => l.fieldId !== field.id);
+    });
+  };
+
+  const updateFieldAreaInDialog = (fieldId: string, area: number) => {
+    setFieldsDialogLinks((prev) =>
+      prev.map((l) => (l.fieldId === fieldId ? { ...l, areaHectares: area } : l)),
+    );
+  };
+
   const formatDate = (iso: string) => {
     if (!iso) return '';
     return new Date(iso).toLocaleDateString();
@@ -220,6 +280,13 @@ export const Seasons = () => {
                         onClick={() => openEditDialog(item)}
                       >
                         <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openFieldsDialog(item)}
+                      >
+                        Fields
                       </Button>
                       <Button
                         variant="ghost"
@@ -339,6 +406,143 @@ export const Seasons = () => {
                 Cancel
               </Button>
               <Button onClick={handleEdit}>Update Season</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Link Fields to Season Dialog */}
+        <Dialog open={showFieldsDialog} onOpenChange={setShowFieldsDialog}>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Fields for Season</DialogTitle>
+              <DialogDescription>
+                Select which fields belong to this season and adjust the area used.
+              </DialogDescription>
+            </DialogHeader>
+            {fieldsDialogSeason && (
+              <div className="space-y-4 py-2">
+                <p className="text-sm">
+                  <span className="font-semibold">{fieldsDialogSeason.name}</span> (
+                  {formatDate(fieldsDialogSeason.startDate)} –{' '}
+                  {formatDate(fieldsDialogSeason.endDate)})
+                </p>
+                <div className="border rounded-md max-h-72 overflow-auto">
+                  {allFields.length === 0 ? (
+                    <div className="p-4 text-sm text-muted-foreground">
+                      No fields available. Create fields first.
+                    </div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Use</th>
+                          <th className="px-3 py-2 text-left">Field</th>
+                          <th className="px-3 py-2 text-left">Area (ha)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allFields.map((field) => {
+                          const selected = isFieldSelected(field.id);
+                          const areaValue = selected
+                            ? getFieldAreaForDialog(field)
+                            : Number(field.areaHectares);
+                          return (
+                            <tr key={field.id} className="border-t">
+                              <td className="px-3 py-2">
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4"
+                                  checked={selected}
+                                  onChange={(e) => toggleFieldSelection(field, e.target.checked)}
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex flex-col">
+                                  <span className="font-mono text-xs text-muted-foreground">
+                                    {field.code}
+                                  </span>
+                                  <span>{field.name}</span>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={areaValue}
+                                  onChange={(e) =>
+                                    updateFieldAreaInDialog(field.id, Number(e.target.value))
+                                  }
+                                  disabled={!selected}
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+                <p className="text-[0.8rem] text-muted-foreground">
+                  When you select a field, the default area is the field&apos;s area, but you can
+                  adjust it for this season.
+                </p>
+              </div>
+            )}
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowFieldsDialog(false);
+                  setFieldsDialogSeason(null);
+                  setFieldsDialogLinks([]);
+                  setFieldsDialogOriginalLinks([]);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!fieldsDialogSeason) return;
+                  try {
+                    setError(null);
+                    const seasonId = fieldsDialogSeason.id;
+                    const original = fieldsDialogOriginalLinks;
+                    const current = fieldsDialogLinks;
+
+                    const toDelete = original.filter(
+                      (o) => !current.some((c) => c.fieldId === o.fieldId),
+                    );
+                    const toUpsert = current;
+
+                    await Promise.all([
+                      ...toDelete.map((link) =>
+                        apiService.deleteSeasonFieldLink(seasonId, link.fieldId),
+                      ),
+                      ...toUpsert.map((link) =>
+                        apiService.upsertSeasonFieldLink(
+                          seasonId,
+                          link.fieldId,
+                          link.areaHectares,
+                        ),
+                      ),
+                    ]);
+
+                    setShowFieldsDialog(false);
+                    setFieldsDialogSeason(null);
+                    setFieldsDialogLinks([]);
+                    setFieldsDialogOriginalLinks([]);
+                  } catch (err) {
+                    setError(
+                      err instanceof Error
+                        ? err.message
+                        : 'Failed to update fields for this season',
+                    );
+                  }
+                }}
+              >
+                Save
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
