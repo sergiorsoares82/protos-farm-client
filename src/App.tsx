@@ -12,6 +12,7 @@ import { CostCenters } from '@/pages/CostCenters';
 import { ManagementAccounts } from '@/pages/ManagementAccounts';
 import { CostCenterCategories } from '@/pages/CostCenterCategories';
 import { Fields } from '@/pages/Fields';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
 function App() {
@@ -22,21 +23,7 @@ function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Temporarily unprotected for development */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/persons" element={<Persons />} />
-          <Route path="/products" element={<Products />} />
-          <Route path="/cost-centers" element={<CostCenters />} />
-          <Route path="/management-accounts" element={<ManagementAccounts />} />
-          <Route path="/cost-center-categories" element={<CostCenterCategories />} />
-          <Route path="/fields" element={<Fields />} />
-          <Route path="/users" element={<Users />} />
-          <Route path="/users-debug" element={<UsersSimple />} />
-          <Route path="/organization" element={<OrganizationSettings />} />
-          <Route path="/super-admin" element={<SuperAdmin />} />
-          <Route path="/settings" element={<Settings />} />
-
-          {/* To re-protect, wrap routes with ProtectedRoute:
+          {/* Protected application routes */}
           <Route
             path="/dashboard"
             element={
@@ -45,7 +32,94 @@ function App() {
               </ProtectedRoute>
             }
           />
-          */}
+          <Route
+            path="/persons"
+            element={
+              <ProtectedRoute>
+                <Persons />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products"
+            element={
+              <ProtectedRoute>
+                <Products />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/cost-centers"
+            element={
+              <ProtectedRoute>
+                <CostCenters />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/management-accounts"
+            element={
+              <ProtectedRoute>
+                <ManagementAccounts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/cost-center-categories"
+            element={
+              <ProtectedRoute>
+                <CostCenterCategories />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/fields"
+            element={
+              <ProtectedRoute>
+                <Fields />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <ProtectedRoute>
+                <Users />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/users-debug"
+            element={
+              <ProtectedRoute>
+                <UsersSimple />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/organization"
+            element={
+              <ProtectedRoute>
+                <OrganizationSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/super-admin"
+            element={
+              <ProtectedRoute>
+                <SuperAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </Router>
     </AuthProvider>
