@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { apiService, User, LoginRequest } from '@/services/api';
+import { apiService, User, LoginRequest, UserRole } from '@/services/api';
 
 interface AuthContextType {
   user: User | null;
   accessToken: string | null;
   isAuthenticated: boolean;
+  isSuperAdmin: boolean;
+  isOrgAdmin: boolean;
+  isRegularUser: boolean;
   isLoading: boolean;
   login: (credentials: LoginRequest) => Promise<void>;
   logout: () => void;
@@ -28,6 +31,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Register unauthorized callback with API service
+  useEffect(() => {
+    apiService.setUnauthorizedCallback(() => {
+      // Clear state
+      setAccessToken(null);
+      setUser(null);
+      // Redirect to login page
+      window.location.href = '/login';
+    });
+  }, []);
 
   // Check for existing tokens on mount
   useEffect(() => {
@@ -53,12 +67,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (credentials: LoginRequest) => {
     try {
       const response = await apiService.login(credentials);
-      
+
       // Store tokens and user data
       localStorage.setItem('accessToken', response.accessToken);
       localStorage.setItem('refreshToken', response.refreshToken);
       localStorage.setItem('user', JSON.stringify(response.user));
-      
+
       setAccessToken(response.accessToken);
       setUser(response.user);
     } catch (error) {
@@ -71,7 +85,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
-    
+
     setAccessToken(null);
     setUser(null);
   };
@@ -80,6 +94,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     accessToken,
     isAuthenticated: !!accessToken && !!user,
+    isSuperAdmin: user?.role === UserRole.SUPER_ADMIN,
+    isOrgAdmin: user?.role === UserRole.ORG_ADMIN || user?.role === UserRole.SUPER_ADMIN,
+    isRegularUser: user?.role === UserRole.USER,
     isLoading,
     login,
     logout,
