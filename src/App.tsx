@@ -12,6 +12,7 @@ import { CostCenters } from '@/pages/CostCenters';
 import { ManagementAccounts } from '@/pages/ManagementAccounts';
 import { CostCenterCategories } from '@/pages/CostCenterCategories';
 import { Fields } from '@/pages/Fields';
+import { Seasons } from '@/pages/Seasons';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
@@ -77,6 +78,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Fields />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/seasons"
+            element={
+              <ProtectedRoute>
+                <Seasons />
               </ProtectedRoute>
             }
           />

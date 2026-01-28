@@ -323,6 +323,31 @@ export interface UpdateFieldRequest {
   isActive?: boolean;
 }
 
+// Seasons (Safras)
+export interface Season {
+  id: string;
+  tenantId: string;
+  name: string;
+  startDate: string; // ISO date
+  endDate: string;   // ISO date
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSeasonRequest {
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface UpdateSeasonRequest {
+  name?: string;
+  startDate?: string;
+  endDate?: string;
+  isActive?: boolean;
+}
+
 // Management Account Types
 export enum AccountType {
   REVENUE = 'REVENUE',
@@ -900,6 +925,41 @@ class ApiService {
 
   async deleteField(id: string): Promise<void> {
     const response = await this.fetchWithRetry(`${this.baseUrl}/api/fields/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    await this.handleResponse<void>(response);
+  }
+
+  // Seasons (Safras)
+  async getSeasons(): Promise<Season[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/seasons`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<Season[]>(response);
+  }
+
+  async createSeason(data: CreateSeasonRequest): Promise<Season> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/seasons`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<Season>(response);
+  }
+
+  async updateSeason(id: string, data: UpdateSeasonRequest): Promise<Season> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/seasons/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<Season>(response);
+  }
+
+  async deleteSeason(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/seasons/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
