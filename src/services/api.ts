@@ -357,7 +357,12 @@ export interface UpdateManagementAccountRequest {
 }
 
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// In development, default to localhost backend.
+// In production (build on Vercel, etc.), default to your public API URL,
+// but allow overriding via VITE_API_URL if you prefer.
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? 'https://api.protosfarm.com.br' : 'http://localhost:3000');
 
 // API Service
 class ApiService {
@@ -379,6 +384,30 @@ class ApiService {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
     };
+  }
+
+  /**
+   * Wrapper around fetch that retries once on network error or 5xx response.
+   * This helps hide transient cold-start / connection issues (e.g. serverless + Neon).
+   */
+  private async fetchWithRetry(
+    input: RequestInfo | URL,
+    init?: RequestInit,
+    retries = 1,
+  ): Promise<Response> {
+    try {
+      const response = await fetch(input, init);
+      if (response.ok || retries <= 0 || response.status < 500) {
+        return response;
+      }
+      // Retry once on 5xx
+      return await fetch(input, init);
+    } catch (err) {
+      if (retries <= 0) {
+        throw err;
+      }
+      return await fetch(input, init);
+    }
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
@@ -429,7 +458,7 @@ class ApiService {
 
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/auth/login`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -465,7 +494,7 @@ class ApiService {
   // Person Management APIs
   async getPersons(): Promise<Person[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/persons`, {
+      const response = await this.fetchWithRetry(`${this.baseUrl}/api/persons`, {
         method: 'GET',
         headers: this.getAuthHeaders(),
       });
@@ -477,7 +506,7 @@ class ApiService {
   }
 
   async getPerson(id: string): Promise<Person> {
-    const response = await fetch(`${this.baseUrl}/api/persons/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/persons/${id}`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -486,7 +515,7 @@ class ApiService {
   }
 
   async createPerson(person: CreatePersonRequest): Promise<Person> {
-    const response = await fetch(`${this.baseUrl}/api/persons`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/persons`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(person),
@@ -496,7 +525,7 @@ class ApiService {
   }
 
   async updatePerson(id: string, updates: UpdatePersonRequest): Promise<Person> {
-    const response = await fetch(`${this.baseUrl}/api/persons/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/persons/${id}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(updates),
@@ -506,7 +535,7 @@ class ApiService {
   }
 
   async deletePerson(id: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/persons/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/persons/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
@@ -514,7 +543,7 @@ class ApiService {
   }
 
   async assignRole(id: string, role: PersonRole, roleData: RoleData): Promise<Person> {
-    const response = await fetch(`${this.baseUrl}/api/persons/${id}/roles`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/persons/${id}/roles`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify({ role, roleData }),
@@ -524,7 +553,7 @@ class ApiService {
   }
 
   async removeRole(id: string, role: PersonRole): Promise<Person> {
-    const response = await fetch(`${this.baseUrl}/api/persons/${id}/roles/${role}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/persons/${id}/roles/${role}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
@@ -534,7 +563,7 @@ class ApiService {
 
   // Organization Management
   async getOrganizations(): Promise<Organization[]> {
-    const response = await fetch(`${this.baseUrl}/api/organizations`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/organizations`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -543,7 +572,7 @@ class ApiService {
   }
 
   async getMyOrganization(): Promise<Organization> {
-    const response = await fetch(`${this.baseUrl}/api/organizations/me`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/organizations/me`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -552,7 +581,7 @@ class ApiService {
   }
 
   async getOrganization(id: string): Promise<Organization> {
-    const response = await fetch(`${this.baseUrl}/api/organizations/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/organizations/${id}`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -561,7 +590,7 @@ class ApiService {
   }
 
   async createOrganization(organization: CreateOrganizationRequest): Promise<Organization> {
-    const response = await fetch(`${this.baseUrl}/api/organizations`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/organizations`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(organization),
@@ -571,7 +600,7 @@ class ApiService {
   }
 
   async updateOrganization(id: string, updates: UpdateOrganizationRequest): Promise<Organization> {
-    const response = await fetch(`${this.baseUrl}/api/organizations/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/organizations/${id}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(updates),
@@ -581,7 +610,7 @@ class ApiService {
   }
 
   async deleteOrganization(id: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/organizations/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/organizations/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
@@ -590,7 +619,7 @@ class ApiService {
 
   // Document Types (Super Admin)
   async getDocumentTypes(): Promise<DocumentType[]> {
-    const response = await fetch(`${this.baseUrl}/api/document-types`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/document-types`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -599,7 +628,7 @@ class ApiService {
   }
 
   async createDocumentType(payload: CreateDocumentTypeRequest): Promise<DocumentType> {
-    const response = await fetch(`${this.baseUrl}/api/document-types`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/document-types`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(payload),
@@ -609,7 +638,7 @@ class ApiService {
   }
 
   async updateDocumentType(id: string, payload: UpdateDocumentTypeRequest): Promise<DocumentType> {
-    const response = await fetch(`${this.baseUrl}/api/document-types/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/document-types/${id}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(payload),
@@ -619,7 +648,7 @@ class ApiService {
   }
 
   async deleteDocumentType(id: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/document-types/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/document-types/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
@@ -632,7 +661,7 @@ class ApiService {
       ? `${this.baseUrl}/api/users?tenantId=${tenantId}`
       : `${this.baseUrl}/api/users`;
 
-    const response = await fetch(url, {
+    const response = await this.fetchWithRetry(url, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -641,7 +670,7 @@ class ApiService {
   }
 
   async getUser(id: string): Promise<UserManagement> {
-    const response = await fetch(`${this.baseUrl}/api/users/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/users/${id}`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -650,7 +679,7 @@ class ApiService {
   }
 
   async createUser(user: CreateUserRequest): Promise<UserManagement> {
-    const response = await fetch(`${this.baseUrl}/api/users`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/users`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(user),
@@ -660,7 +689,7 @@ class ApiService {
   }
 
   async updateUser(id: string, updates: UpdateUserRequest): Promise<UserManagement> {
-    const response = await fetch(`${this.baseUrl}/api/users/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/users/${id}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(updates),
@@ -670,7 +699,7 @@ class ApiService {
   }
 
   async deleteUser(id: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/users/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/users/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
@@ -679,7 +708,7 @@ class ApiService {
 
   // Link person to user
   async linkPersonToUser(userId: string, personId: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/users/${userId}/link-person`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/users/${userId}/link-person`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify({ personId }),
@@ -689,7 +718,7 @@ class ApiService {
 
   // Unlink person from user
   async unlinkPersonFromUser(userId: string, personId: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/users/${userId}/persons/${personId}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/users/${userId}/persons/${personId}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
@@ -704,7 +733,7 @@ class ApiService {
     if (active !== undefined) params.append('active', active.toString());
     if (params.toString()) url += `?${params.toString()}`;
 
-    const response = await fetch(url, {
+    const response = await this.fetchWithRetry(url, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -713,7 +742,7 @@ class ApiService {
   }
 
   async getItem(id: string): Promise<Item> {
-    const response = await fetch(`${this.baseUrl}/api/items/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/items/${id}`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -722,7 +751,7 @@ class ApiService {
   }
 
   async createItem(item: CreateItemRequest): Promise<Item> {
-    const response = await fetch(`${this.baseUrl}/api/items`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/items`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(item),
@@ -732,7 +761,7 @@ class ApiService {
   }
 
   async updateItem(id: string, updates: UpdateItemRequest): Promise<Item> {
-    const response = await fetch(`${this.baseUrl}/api/items/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/items/${id}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(updates),
@@ -742,7 +771,7 @@ class ApiService {
   }
 
   async deleteItem(id: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/items/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/items/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
@@ -751,7 +780,7 @@ class ApiService {
 
   // Cost Center Management
   async getCostCenters(): Promise<CostCenter[]> {
-    const response = await fetch(`${this.baseUrl}/api/cost-centers`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/cost-centers`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -760,7 +789,7 @@ class ApiService {
   }
 
   async getCostCenter(id: string): Promise<CostCenter> {
-    const response = await fetch(`${this.baseUrl}/api/cost-centers/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/cost-centers/${id}`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -768,7 +797,7 @@ class ApiService {
   }
 
   async createCostCenter(data: CreateCostCenterRequest): Promise<CostCenter> {
-    const response = await fetch(`${this.baseUrl}/api/cost-centers`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/cost-centers`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(data),
@@ -777,7 +806,7 @@ class ApiService {
   }
 
   async updateCostCenter(id: string, data: UpdateCostCenterRequest): Promise<CostCenter> {
-    const response = await fetch(`${this.baseUrl}/api/cost-centers/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/cost-centers/${id}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(data),
@@ -786,7 +815,7 @@ class ApiService {
   }
 
   async deleteCostCenter(id: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/cost-centers/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/cost-centers/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
@@ -795,7 +824,7 @@ class ApiService {
 
   // Cost Center Categories
   async getCostCenterCategories(): Promise<CostCenterCategory[]> {
-    const response = await fetch(`${this.baseUrl}/api/cost-center-categories`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/cost-center-categories`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -808,7 +837,7 @@ class ApiService {
   async createCostCenterCategory(
     category: CreateCostCenterCategoryRequest,
   ): Promise<CostCenterCategory> {
-    const response = await fetch(`${this.baseUrl}/api/cost-center-categories`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/cost-center-categories`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(category),
@@ -823,7 +852,7 @@ class ApiService {
     id: string,
     updates: UpdateCostCenterCategoryRequest,
   ): Promise<CostCenterCategory> {
-    const response = await fetch(`${this.baseUrl}/api/cost-center-categories/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/cost-center-categories/${id}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(updates),
@@ -835,7 +864,7 @@ class ApiService {
   }
 
   async deleteCostCenterCategory(id: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/cost-center-categories/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/cost-center-categories/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
@@ -844,7 +873,7 @@ class ApiService {
 
   // Fields (Talhões)
   async getFields(): Promise<Field[]> {
-    const response = await fetch(`${this.baseUrl}/api/fields`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/fields`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -852,7 +881,7 @@ class ApiService {
   }
 
   async createField(data: CreateFieldRequest): Promise<Field> {
-    const response = await fetch(`${this.baseUrl}/api/fields`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/fields`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(data),
@@ -861,7 +890,7 @@ class ApiService {
   }
 
   async updateField(id: string, data: UpdateFieldRequest): Promise<Field> {
-    const response = await fetch(`${this.baseUrl}/api/fields/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/fields/${id}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(data),
@@ -870,7 +899,7 @@ class ApiService {
   }
 
   async deleteField(id: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/fields/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/fields/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
@@ -879,7 +908,7 @@ class ApiService {
 
   // Management Account (Conta Gerencial)
   async getManagementAccounts(): Promise<ManagementAccount[]> {
-    const response = await fetch(`${this.baseUrl}/api/management-accounts`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/management-accounts`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -887,7 +916,7 @@ class ApiService {
   }
 
   async getManagementAccount(id: string): Promise<ManagementAccount> {
-    const response = await fetch(`${this.baseUrl}/api/management-accounts/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/management-accounts/${id}`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -895,7 +924,7 @@ class ApiService {
   }
 
   async createManagementAccount(data: CreateManagementAccountRequest): Promise<ManagementAccount> {
-    const response = await fetch(`${this.baseUrl}/api/management-accounts`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/management-accounts`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(data),
@@ -904,7 +933,7 @@ class ApiService {
   }
 
   async updateManagementAccount(id: string, data: UpdateManagementAccountRequest): Promise<ManagementAccount> {
-    const response = await fetch(`${this.baseUrl}/api/management-accounts/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/management-accounts/${id}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(data),
@@ -913,7 +942,7 @@ class ApiService {
   }
 
   async deleteManagementAccount(id: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/management-accounts/${id}`, {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/management-accounts/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
