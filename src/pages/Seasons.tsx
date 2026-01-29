@@ -209,7 +209,12 @@ export const Seasons = () => {
 
   const formatDate = (iso: string) => {
     if (!iso) return '';
-    return new Date(iso).toLocaleDateString();
+    // Expecting a date-only string from the API: YYYY-MM-DD
+    if (iso.length >= 10) {
+      const [y, m, d] = iso.slice(0, 10).split('-');
+      return `${d}/${m}/${y}`;
+    }
+    return iso;
   };
 
   return (
@@ -252,58 +257,87 @@ export const Seasons = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {items.map((item) => (
-              <Card key={item.id} className={!item.isActive ? 'opacity-60' : ''}>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      {item.name}
-                      {!item.isActive && (
-                        <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
-                          Inactive
-                        </span>
-                      )}
-                    </span>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleToggleActive(item)}
-                        title={item.isActive ? 'Deactivate' : 'Activate'}
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-muted">
+                    <tr className="text-left">
+                      <th className="px-4 py-3 font-medium">Name</th>
+                      <th className="px-4 py-3 font-medium">Period</th>
+                      <th className="px-4 py-3 font-medium">Status</th>
+                      <th className="px-4 py-3 font-medium text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item) => (
+                      <tr
+                        key={item.id}
+                        className={`border-t ${!item.isActive ? 'opacity-60' : ''}`}
                       >
-                        {item.isActive ? '✓' : '○'}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditDialog(item)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openFieldsDialog(item)}
-                      >
-                        Fields
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(item.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardTitle>
-                  <CardDescription>
-                    {formatDate(item.startDate)} – {formatDate(item.endDate)}
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{item.name}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatDate(item.startDate)} – {formatDate(item.endDate)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              item.isActive
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            {item.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleToggleActive(item)}
+                              title={item.isActive ? 'Deactivate' : 'Activate'}
+                            >
+                              {item.isActive ? '✓' : '○'}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openEditDialog(item)}
+                              title="Edit season"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2"
+                              onClick={() => openFieldsDialog(item)}
+                            >
+                              Fields
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-500 hover:text-red-600"
+                              onClick={() => handleDelete(item.id)}
+                              title="Delete season"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Create Dialog */}
