@@ -14,6 +14,7 @@ import { CostCenterCategories } from '@/pages/CostCenterCategories';
 import { Fields } from '@/pages/Fields';
 import { Seasons } from '@/pages/Seasons';
 import { MachineTypes } from '@/pages/MachineTypes';
+import { Machines } from '@/pages/Machines';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
@@ -95,6 +96,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <MachineTypes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/machines"
+            element={
+              <ProtectedRoute>
+                <Machines />
               </ProtectedRoute>
             }
           />

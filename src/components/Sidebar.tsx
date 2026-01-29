@@ -42,6 +42,7 @@ const navItems: NavItem[] = [
   { name: 'Fields (Talhões)', path: '/fields', icon: MapPin, roles: 'all' },
   { name: 'Seasons (Safras)', path: '/seasons', icon: CalendarRange, roles: 'all' },
   { name: 'Machine Types', path: '/machine-types', icon: Truck, roles: 'all' },
+  { name: 'Machines (Máquinas)', path: '/machines', icon: Truck, roles: 'all' },
   {
     name: 'Cost Center Categories',
     path: '/cost-center-categories',
