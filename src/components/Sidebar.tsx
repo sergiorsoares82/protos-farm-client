@@ -20,6 +20,7 @@ import {
   Tags,
   MapPin,
   CalendarRange,
+  Truck,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ const navItems: NavItem[] = [
   { name: 'Management Accounts', path: '/management-accounts', icon: PiggyBank, roles: 'all' },
   { name: 'Fields (Talhões)', path: '/fields', icon: MapPin, roles: 'all' },
   { name: 'Seasons (Safras)', path: '/seasons', icon: CalendarRange, roles: 'all' },
+  { name: 'Machine Types', path: '/machine-types', icon: Truck, roles: 'all' },
   {
     name: 'Cost Center Categories',
     path: '/cost-center-categories',

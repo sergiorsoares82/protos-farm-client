@@ -354,6 +354,31 @@ export interface SeasonFieldLink {
   costCenterId: string;
 }
 
+// Machine Types (tractors, harvesters, seeders...)
+export interface MachineType {
+  id: string;
+  tenantId: string;
+  code: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMachineTypeRequest {
+  code: string;
+  name: string;
+  description?: string;
+}
+
+export interface UpdateMachineTypeRequest {
+  code?: string;
+  name?: string;
+  description?: string;
+  isActive?: boolean;
+}
+
 // Management Account Types
 export enum AccountType {
   REVENUE = 'REVENUE',
@@ -1009,6 +1034,49 @@ class ApiService {
         headers: this.getAuthHeaders(),
       },
     );
+    await this.handleResponse<void>(response);
+  }
+
+  // Machine Types
+  async getMachineTypes(): Promise<MachineType[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/machine-types`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<MachineType[]>(response);
+  }
+
+  async getMachineType(id: string): Promise<MachineType> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/machine-types/${id}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<MachineType>(response);
+  }
+
+  async createMachineType(data: CreateMachineTypeRequest): Promise<MachineType> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/machine-types`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<MachineType>(response);
+  }
+
+  async updateMachineType(id: string, data: UpdateMachineTypeRequest): Promise<MachineType> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/machine-types/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<MachineType>(response);
+  }
+
+  async deleteMachineType(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/machine-types/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
     await this.handleResponse<void>(response);
   }
 
