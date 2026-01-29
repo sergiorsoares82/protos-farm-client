@@ -351,6 +351,7 @@ export interface UpdateSeasonRequest {
 export interface SeasonFieldLink {
   fieldId: string;
   areaHectares: number;
+  costCenterId: string;
 }
 
 // Management Account Types
@@ -482,6 +483,10 @@ class ApiService {
         statusCode: response.status,
         details: error.details || error,
       } as ApiError;
+    }
+    // 204 No Content has no body; calling response.json() would throw
+    if (response.status === 204) {
+      return undefined as T;
     }
     return response.json();
   }
@@ -985,12 +990,13 @@ class ApiService {
   async upsertSeasonFieldLink(
     seasonId: string,
     fieldId: string,
+    costCenterId: string,
     areaHectares: number,
   ): Promise<void> {
     const response = await this.fetchWithRetry(`${this.baseUrl}/api/seasons/${seasonId}/fields`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify({ fieldId, areaHectares }),
+      body: JSON.stringify({ fieldId, costCenterId, areaHectares }),
     });
     await this.handleResponse<void>(response);
   }

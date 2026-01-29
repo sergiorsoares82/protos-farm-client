@@ -3,9 +3,6 @@ import { Layout } from '@/components/Layout';
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +23,7 @@ import {
   UpdateSeasonRequest,
   Field,
   SeasonFieldLink,
+  CostCenter,
 } from '@/services/api';
 
 export const Seasons = () => {
@@ -37,6 +35,7 @@ export const Seasons = () => {
   const [selectedItem, setSelectedItem] = useState<Season | null>(null);
 
   const [allFields, setAllFields] = useState<Field[]>([]);
+  const [lavouraCostCenters, setLavouraCostCenters] = useState<CostCenter[]>([]);
   const [showFieldsDialog, setShowFieldsDialog] = useState(false);
   const [fieldsDialogSeason, setFieldsDialogSeason] = useState<Season | null>(null);
   const [fieldsDialogLinks, setFieldsDialogLinks] = useState<SeasonFieldLink[]>([]);
@@ -65,10 +64,22 @@ export const Seasons = () => {
     const init = async () => {
       await loadItems();
       try {
-        const fields = await apiService.getFields();
+        const [fields, costCenters, categories] = await Promise.all([
+          apiService.getFields(),
+          apiService.getCostCenters(),
+          apiService.getCostCenterCategories(),
+        ]);
         setAllFields(fields);
+        const lavouraCategoryIds = categories
+          .filter((c) => c.isActive && c.code === 'LAV')
+          .map((c) => c.id);
+        setLavouraCostCenters(
+          costCenters.filter(
+            (cc) => cc.isActive && cc.categoryId && lavouraCategoryIds.includes(cc.categoryId),
+          ),
+        );
       } catch (err) {
-        console.error('Failed to load fields for seasons page', err);
+        console.error('Failed to load fields or cost centers for seasons page', err);
       }
     };
     init();
@@ -195,7 +206,15 @@ export const Seasons = () => {
     setFieldsDialogLinks((prev) => {
       if (checked) {
         if (prev.some((l) => l.fieldId === field.id)) return prev;
-        return [...prev, { fieldId: field.id, areaHectares: Number(field.areaHectares) }];
+        const defaultCc = lavouraCostCenters[0];
+        return [
+          ...prev,
+          {
+            fieldId: field.id,
+            areaHectares: Number(field.areaHectares),
+            costCenterId: defaultCc ? defaultCc.id : '',
+          },
+        ];
       }
       return prev.filter((l) => l.fieldId !== field.id);
     });
@@ -472,6 +491,7 @@ export const Seasons = () => {
                           <th className="px-3 py-2 text-left">Use</th>
                           <th className="px-3 py-2 text-left">Field</th>
                           <th className="px-3 py-2 text-left">Area (ha)</th>
+                          <th className="px-3 py-2 text-left">Cost Center (Lavoura)</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -480,6 +500,7 @@ export const Seasons = () => {
                           const areaValue = selected
                             ? getFieldAreaForDialog(field)
                             : Number(field.areaHectares);
+                          const link = fieldsDialogLinks.find((l) => l.fieldId === field.id);
                           return (
                             <tr key={field.id} className="border-t">
                               <td className="px-3 py-2">
@@ -509,6 +530,29 @@ export const Seasons = () => {
                                   }
                                   disabled={!selected}
                                 />
+                              </td>
+                              <td className="px-3 py-2">
+                                <select
+                                  className="border rounded px-2 py-1 text-sm w-full disabled:bg-muted"
+                                  disabled={!selected || lavouraCostCenters.length === 0}
+                                  value={link?.costCenterId ?? ''}
+                                  onChange={(e) =>
+                                    setFieldsDialogLinks((prev) =>
+                                      prev.map((l) =>
+                                        l.fieldId === field.id
+                                          ? { ...l, costCenterId: e.target.value }
+                                          : l,
+                                      ),
+                                    )
+                                  }
+                                >
+                                  <option value="">Select...</option>
+                                  {lavouraCostCenters.map((cc) => (
+                                    <option key={cc.id} value={cc.id}>
+                                      {cc.code} - {cc.description}
+                                    </option>
+                                  ))}
+                                </select>
                               </td>
                             </tr>
                           );
@@ -540,6 +584,16 @@ export const Seasons = () => {
                   if (!fieldsDialogSeason) return;
                   try {
                     setError(null);
+                    if (
+                      fieldsDialogLinks.some(
+                        (l) => !l.costCenterId || l.costCenterId.trim().length === 0,
+                      )
+                    ) {
+                      setError(
+                        'Please select a cost center (Lavoura) for each selected field in this season.',
+                      );
+                      return;
+                    }
                     const seasonId = fieldsDialogSeason.id;
                     const original = fieldsDialogOriginalLinks;
                     const current = fieldsDialogLinks;
@@ -557,6 +611,7 @@ export const Seasons = () => {
                         apiService.upsertSeasonFieldLink(
                           seasonId,
                           link.fieldId,
+                          link.costCenterId,
                           link.areaHectares,
                         ),
                       ),
