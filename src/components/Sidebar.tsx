@@ -21,6 +21,7 @@ import {
   MapPin,
   CalendarRange,
   Truck,
+  Box,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -43,6 +44,7 @@ const navItems: NavItem[] = [
   { name: 'Seasons (Safras)', path: '/seasons', icon: CalendarRange, roles: 'all' },
   { name: 'Machine Types', path: '/machine-types', icon: Truck, roles: 'all' },
   { name: 'Machines (Máquinas)', path: '/machines', icon: Truck, roles: 'all' },
+  { name: 'Patrimônio (Ativos)', path: '/assets', icon: Box, roles: 'all' },
   {
     name: 'Cost Center Categories',
     path: '/cost-center-categories',

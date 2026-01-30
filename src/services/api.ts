@@ -253,6 +253,7 @@ export interface CostCenter {
   description: string;
   type: CostCenterType;
   categoryId?: string;
+  assetId?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -263,6 +264,7 @@ export interface CreateCostCenterRequest {
   description: string;
   type: CostCenterType;
   categoryId?: string;
+  assetId?: string;
 }
 
 export interface UpdateCostCenterRequest {
@@ -270,6 +272,7 @@ export interface UpdateCostCenterRequest {
   description?: string;
   type?: CostCenterType;
   categoryId?: string;
+  assetId?: string;
   isActive?: boolean;
 }
 
@@ -385,6 +388,7 @@ export interface MachineItem {
   tenantId: string;
   name: string;
   machineTypeId: string;
+  assetId?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -393,12 +397,63 @@ export interface MachineItem {
 export interface CreateMachineRequest {
   name: string;
   machineTypeId: string;
+  assetId?: string;
 }
 
 export interface UpdateMachineRequest {
   name?: string;
   machineTypeId?: string;
+  assetId?: string;
   isActive?: boolean;
+}
+
+// Assets (patrimônio: máquinas, implementos, equipamentos, benfeitorias)
+export enum AssetKind {
+  MACHINE = 'MACHINE',
+  IMPLEMENT = 'IMPLEMENT',
+  EQUIPMENT = 'EQUIPMENT',
+  IMPROVEMENT = 'IMPROVEMENT',
+}
+
+export interface Asset {
+  id: string;
+  tenantId: string;
+  name: string;
+  code?: string;
+  assetKind: AssetKind;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAssetRequest {
+  name: string;
+  code?: string;
+  assetKind: AssetKind;
+}
+
+export interface UpdateAssetRequest {
+  name?: string;
+  code?: string;
+  assetKind?: AssetKind;
+  isActive?: boolean;
+}
+
+/** Creates Asset + Machine + CostCenter in one call. */
+export interface CreateFullMachineRequest {
+  name: string;
+  code?: string;
+  machineTypeId: string;
+  costCenterCode?: string;
+  costCenterDescription?: string;
+  costCenterType: string; // PRODUCTIVE | ADMINISTRATIVE | SHARED
+  costCenterCategoryId?: string;
+}
+
+export interface CreateFullMachineResponse {
+  asset: Asset;
+  machine: MachineItem;
+  costCenter: { id: string; code: string; description: string; type: string; assetId?: string; [key: string]: unknown };
 }
 
 // Management Account Types
@@ -1143,6 +1198,59 @@ class ApiService {
       headers: this.getAuthHeaders(),
     });
     await this.handleResponse<void>(response);
+  }
+
+  // Assets (patrimônio)
+  async getAssets(): Promise<Asset[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/assets`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<Asset[]>(response);
+  }
+
+  async getAsset(id: string): Promise<Asset> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/assets/${id}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<Asset>(response);
+  }
+
+  async createAsset(data: CreateAssetRequest): Promise<Asset> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/assets`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<Asset>(response);
+  }
+
+  async updateAsset(id: string, data: UpdateAssetRequest): Promise<Asset> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/assets/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<Asset>(response);
+  }
+
+  async deleteAsset(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/assets/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    await this.handleResponse<void>(response);
+  }
+
+  /** Create Asset + Machine + CostCenter in one call (e.g. "Trator 01"). */
+  async createFullMachine(data: CreateFullMachineRequest): Promise<CreateFullMachineResponse> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/assets/full-machine`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<CreateFullMachineResponse>(response);
   }
 
   // Management Account (Conta Gerencial)

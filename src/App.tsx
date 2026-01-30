@@ -15,6 +15,7 @@ import { Fields } from '@/pages/Fields';
 import { Seasons } from '@/pages/Seasons';
 import { MachineTypes } from '@/pages/MachineTypes';
 import { Machines } from '@/pages/Machines';
+import { Assets } from '@/pages/Assets';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
@@ -104,6 +105,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Machines />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/assets"
+            element={
+              <ProtectedRoute>
+                <Assets />
               </ProtectedRoute>
             }
           />
