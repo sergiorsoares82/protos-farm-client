@@ -304,7 +304,8 @@ export interface UpdateCostCenterCategoryRequest {
 // Work location type (user-managed entity; only SuperAdmin and OrgAdmin can manage)
 export interface WorkLocationType {
   id: string;
-  tenantId: string;
+  /** Null for system types (e.g. Talhão) available to all organizations. */
+  tenantId: string | null;
   code: string;
   name: string;
   isTalhao: boolean;
