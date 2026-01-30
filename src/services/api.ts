@@ -301,30 +301,65 @@ export interface UpdateCostCenterCategoryRequest {
   isActive?: boolean;
 }
 
-// Fields (Talhões)
-export interface Field {
+// Work location type (user-managed entity; only SuperAdmin and OrgAdmin can manage)
+export interface WorkLocationType {
   id: string;
   tenantId: string;
   code: string;
   name: string;
-  areaHectares: number;
+  isTalhao: boolean;
+  isSystem: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CreateFieldRequest {
+export interface CreateWorkLocationTypeRequest {
   code: string;
   name: string;
-  areaHectares: number;
+  isTalhao: boolean;
 }
 
-export interface UpdateFieldRequest {
+export interface UpdateWorkLocationTypeRequest {
   code?: string;
   name?: string;
-  areaHectares?: number;
   isActive?: boolean;
 }
+
+export interface WorkLocation {
+  id: string;
+  tenantId: string;
+  code: string;
+  name: string;
+  typeId: string;
+  typeCode: string;
+  isTalhao: boolean;
+  areaHectares: number | null;
+  costCenterId: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateWorkLocationRequest {
+  code: string;
+  name: string;
+  typeId: string;
+  areaHectares?: number | null;
+  costCenterId?: string | null;
+}
+
+export interface UpdateWorkLocationRequest {
+  code?: string;
+  name?: string;
+  typeId?: string;
+  areaHectares?: number | null;
+  costCenterId?: string | null;
+  isActive?: boolean;
+}
+
+/** @deprecated Use WorkLocation. Kept for Seasons page (fieldId in SeasonFieldLink = work location id for talhão). */
+export type Field = WorkLocation;
 
 // Seasons (Safras)
 export interface Season {
@@ -1008,35 +1043,76 @@ class ApiService {
     await this.handleResponse<void>(response);
   }
 
-  // Fields (Talhões)
-  async getFields(): Promise<Field[]> {
-    const response = await this.fetchWithRetry(`${this.baseUrl}/api/fields`, {
+  // Work locations (Locais de Trabalho: talhões, galpões, ordenha, fábrica de ração, etc.)
+  async getWorkLocations(): Promise<WorkLocation[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/work-locations`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
-    return await this.handleResponse<Field[]>(response);
+    return await this.handleResponse<WorkLocation[]>(response);
   }
 
-  async createField(data: CreateFieldRequest): Promise<Field> {
-    const response = await this.fetchWithRetry(`${this.baseUrl}/api/fields`, {
+  async createWorkLocation(data: CreateWorkLocationRequest): Promise<WorkLocation> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/work-locations`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(data),
     });
-    return await this.handleResponse<Field>(response);
+    return await this.handleResponse<WorkLocation>(response);
   }
 
-  async updateField(id: string, data: UpdateFieldRequest): Promise<Field> {
-    const response = await this.fetchWithRetry(`${this.baseUrl}/api/fields/${id}`, {
+  async updateWorkLocation(
+    id: string,
+    data: UpdateWorkLocationRequest,
+  ): Promise<WorkLocation> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/work-locations/${id}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(data),
     });
-    return await this.handleResponse<Field>(response);
+    return await this.handleResponse<WorkLocation>(response);
   }
 
-  async deleteField(id: string): Promise<void> {
-    const response = await this.fetchWithRetry(`${this.baseUrl}/api/fields/${id}`, {
+  async deleteWorkLocation(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/work-locations/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    await this.handleResponse<void>(response);
+  }
+
+  // Work location types (only SuperAdmin and OrgAdmin can create/update/delete)
+  async getWorkLocationTypes(): Promise<WorkLocationType[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/work-location-types`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<WorkLocationType[]>(response);
+  }
+
+  async createWorkLocationType(data: CreateWorkLocationTypeRequest): Promise<WorkLocationType> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/work-location-types`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<WorkLocationType>(response);
+  }
+
+  async updateWorkLocationType(
+    id: string,
+    data: UpdateWorkLocationTypeRequest,
+  ): Promise<WorkLocationType> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/work-location-types/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<WorkLocationType>(response);
+  }
+
+  async deleteWorkLocationType(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/work-location-types/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });

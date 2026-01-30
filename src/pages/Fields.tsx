@@ -18,31 +18,55 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { AlertCircle, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
-import { apiService, Field, CreateFieldRequest, UpdateFieldRequest } from '@/services/api';
+import {
+  apiService,
+  WorkLocation,
+  WorkLocationType,
+  CreateWorkLocationRequest,
+  UpdateWorkLocationRequest,
+  CostCenter,
+} from '@/services/api';
 
 export const Fields = () => {
-  const [items, setItems] = useState<Field[]>([]);
+  const [items, setItems] = useState<WorkLocation[]>([]);
+  const [workLocationTypes, setWorkLocationTypes] = useState<WorkLocationType[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<Field | null>(null);
+  const [selectedItem, setSelectedItem] = useState<WorkLocation | null>(null);
 
-  const [formData, setFormData] = useState<CreateFieldRequest>({
+  const [formData, setFormData] = useState<CreateWorkLocationRequest>({
     code: '',
     name: '',
+    typeId: '',
     areaHectares: 1,
+    costCenterId: null,
   });
 
   const loadItems = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.getFields();
-      setItems(data);
+      const [locations, types, centers] = await Promise.all([
+        apiService.getWorkLocations(),
+        apiService.getWorkLocationTypes(),
+        apiService.getCostCenters(),
+      ]);
+      setItems(locations);
+      setWorkLocationTypes(types.filter((t) => t.isActive));
+      setCostCenters(centers.filter((c) => c.isActive));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load fields');
+      setError(err instanceof Error ? err.message : 'Failed to load work locations');
     } finally {
       setLoading(false);
     }
@@ -52,20 +76,33 @@ export const Fields = () => {
     loadItems();
   }, []);
 
+  const selectedType = workLocationTypes.find((t) => t.id === formData.typeId);
+
   const validateForm = (): string | null => {
-    if (!formData.code.trim()) return 'Code is required';
-    if (!formData.name.trim()) return 'Name is required';
-    if (!Number.isFinite(formData.areaHectares) || formData.areaHectares <= 0) {
-      return 'Area (ha) must be greater than zero';
+    if (!formData.code.trim()) return 'Código é obrigatório';
+    if (!formData.name.trim()) return 'Nome é obrigatório';
+    if (!formData.typeId) return 'Tipo de local é obrigatório';
+    if (selectedType?.isTalhao) {
+      const area = formData.areaHectares ?? 0;
+      if (!Number.isFinite(area) || area <= 0) {
+        return 'Área (ha) é obrigatória e deve ser maior que zero para este tipo';
+      }
+    } else {
+      if (!formData.costCenterId || !formData.costCenterId.trim()) {
+        return 'Centro de custo é obrigatório para este tipo de local';
+      }
     }
     return null;
   };
 
   const resetForm = () => {
+    const defaultTypeId = workLocationTypes.length > 0 ? workLocationTypes[0].id : '';
     setFormData({
       code: '',
       name: '',
+      typeId: defaultTypeId,
       areaHectares: 1,
+      costCenterId: null,
     });
   };
 
@@ -77,12 +114,26 @@ export const Fields = () => {
     }
     try {
       setError(null);
-      await apiService.createField(formData);
+      const payload: CreateWorkLocationRequest = {
+        code: formData.code.trim(),
+        name: formData.name.trim(),
+        typeId: formData.typeId,
+      };
+      if (selectedType?.isTalhao) {
+        payload.areaHectares = formData.areaHectares ?? 1;
+        payload.costCenterId = null;
+      } else {
+        payload.costCenterId = formData.costCenterId ?? null;
+        if (formData.areaHectares != null && formData.areaHectares > 0) {
+          payload.areaHectares = formData.areaHectares;
+        }
+      }
+      await apiService.createWorkLocation(payload);
       setIsCreateDialogOpen(false);
       resetForm();
       await loadItems();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create field');
+      setError(err instanceof Error ? err.message : 'Failed to create work location');
     }
   };
 
@@ -95,50 +146,67 @@ export const Fields = () => {
     }
     try {
       setError(null);
-      const updates: UpdateFieldRequest = {
-        code: formData.code,
-        name: formData.name,
-        areaHectares: formData.areaHectares,
+      const updates: UpdateWorkLocationRequest = {
+        code: formData.code.trim(),
+        name: formData.name.trim(),
+        typeId: formData.typeId,
       };
-      await apiService.updateField(selectedItem.id, updates);
+      if (selectedType?.isTalhao) {
+        updates.areaHectares = formData.areaHectares ?? 1;
+        updates.costCenterId = null;
+      } else {
+        updates.costCenterId = formData.costCenterId ?? null;
+        updates.areaHectares = formData.areaHectares ?? null;
+      }
+      await apiService.updateWorkLocation(selectedItem.id, updates);
       setIsEditDialogOpen(false);
       setSelectedItem(null);
       resetForm();
       await loadItems();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update field');
+      setError(err instanceof Error ? err.message : 'Failed to update work location');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this field?')) return;
+    if (!confirm('Tem certeza que deseja excluir este local de trabalho?')) return;
     try {
       setError(null);
-      await apiService.deleteField(id);
+      await apiService.deleteWorkLocation(id);
       await loadItems();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete field');
+      setError(err instanceof Error ? err.message : 'Failed to delete work location');
     }
   };
 
-  const handleToggleActive = async (item: Field) => {
+  const handleToggleActive = async (item: WorkLocation) => {
     try {
       setError(null);
-      await apiService.updateField(item.id, { isActive: !item.isActive });
+      await apiService.updateWorkLocation(item.id, { isActive: !item.isActive });
       await loadItems();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update status');
     }
   };
 
-  const openEditDialog = (item: Field) => {
+  const openEditDialog = (item: WorkLocation) => {
     setSelectedItem(item);
     setFormData({
       code: item.code,
       name: item.name,
-      areaHectares: item.areaHectares,
+      typeId: item.typeId,
+      areaHectares: item.areaHectares ?? (item.isTalhao ? 1 : null),
+      costCenterId: item.costCenterId ?? null,
     });
     setIsEditDialogOpen(true);
+  };
+
+  const typeName = (typeId: string) =>
+    workLocationTypes.find((t) => t.id === typeId)?.name ?? typeId;
+
+  const costCenterLabel = (id: string) => {
+    const cc = costCenters.find((c) => c.id === id);
+    return cc ? `${cc.code} - ${cc.description}` : id;
   };
 
   return (
@@ -146,9 +214,9 @@ export const Fields = () => {
       <div className="space-y-8">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold">Fields (Talhões)</h1>
+            <h1 className="text-3xl font-bold">Locais de Trabalho</h1>
             <p className="text-muted-foreground">
-              Manage your farm fields and cultivation areas.
+              Cadastre talhões, galpões, ordenha, fábrica de ração e outros locais.
             </p>
           </div>
           <Button
@@ -158,7 +226,7 @@ export const Fields = () => {
             }}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Add Field
+            Adicionar local
           </Button>
         </div>
 
@@ -170,13 +238,13 @@ export const Fields = () => {
         )}
 
         {loading ? (
-          <div className="text-center py-8">Loading fields...</div>
+          <div className="text-center py-8">Carregando locais...</div>
         ) : items.length === 0 ? (
           <Card>
             <CardContent className="py-8">
               <div className="text-center text-muted-foreground">
                 <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No fields yet. Click &quot;Add Field&quot; to create your first one.</p>
+                <p>Nenhum local ainda. Clique em &quot;Adicionar local&quot; para criar o primeiro.</p>
               </div>
             </CardContent>
           </Card>
@@ -186,11 +254,14 @@ export const Fields = () => {
               <Card key={item.id} className={!item.isActive ? 'opacity-60' : ''}>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
+                    <span className="flex items-center gap-2 flex-wrap">
                       {item.code}
+                      <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">
+                        {typeName(item.typeId)}
+                      </span>
                       {!item.isActive && (
                         <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
-                          Inactive
+                          Inativo
                         </span>
                       )}
                     </span>
@@ -199,7 +270,7 @@ export const Fields = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleToggleActive(item)}
-                        title={item.isActive ? 'Deactivate' : 'Activate'}
+                        title={item.isActive ? 'Desativar' : 'Ativar'}
                       >
                         {item.isActive ? '✓' : '○'}
                       </Button>
@@ -220,7 +291,13 @@ export const Fields = () => {
                     </div>
                   </CardTitle>
                   <CardDescription>
-                    {item.name} • {item.areaHectares.toFixed(2)} ha
+                    {item.name}
+                    {item.areaHectares != null && item.areaHectares > 0 && (
+                      <> • {Number(item.areaHectares).toFixed(2)} ha</>
+                    )}
+                    {item.costCenterId && (
+                      <> • {costCenterLabel(item.costCenterId)}</>
+                    )}
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -232,46 +309,118 @@ export const Fields = () => {
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add New Field</DialogTitle>
+              <DialogTitle>Novo local de trabalho</DialogTitle>
               <DialogDescription>
-                Register a new cultivation field for your organization.
+                Cadastre um talhão, galpão, ordenha, fábrica de ração ou outro local.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="code">Code *</Label>
+                <Label htmlFor="type">Tipo *</Label>
+                <Select
+                  value={formData.typeId}
+                  onValueChange={(value) => {
+                    const t = workLocationTypes.find((x) => x.id === value);
+                    setFormData({
+                      ...formData,
+                      typeId: value,
+                      areaHectares: t?.isTalhao ? 1 : null,
+                      costCenterId: t?.isTalhao ? null : formData.costCenterId,
+                    });
+                  }}
+                >
+                  <SelectTrigger id="type">
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workLocationTypes.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="code">Código *</Label>
                 <Input
                   id="code"
                   value={formData.code}
                   onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  placeholder="e.g., T01"
+                  placeholder="ex.: T01, G01"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="name">Name *</Label>
+                <Label htmlFor="name">Nome *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Talhão Norte"
+                  placeholder="ex.: Talhão Norte, Galpão 1"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="area">Area (ha) *</Label>
-                <Input
-                  id="area"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.areaHectares}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      areaHectares: Number(e.target.value),
-                    })
-                  }
-                />
-              </div>
+              {selectedType?.isTalhao && (
+                <div className="space-y-2">
+                  <Label htmlFor="area">Área (ha) *</Label>
+                  <Input
+                    id="area"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={formData.areaHectares ?? ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        areaHectares: e.target.value
+                          ? Number(e.target.value)
+                          : null,
+                      })
+                    }
+                  />
+                </div>
+              )}
+              {selectedType && !selectedType.isTalhao && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="costCenter">Centro de custo *</Label>
+                    <Select
+                      value={formData.costCenterId ?? ''}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, costCenterId: value || null })
+                      }
+                    >
+                      <SelectTrigger id="costCenter">
+                        <SelectValue placeholder="Selecione o centro de custo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {costCenters.map((cc) => (
+                          <SelectItem key={cc.id} value={cc.id}>
+                            {cc.code} - {cc.description}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="areaOpt">Área (ha) – opcional</Label>
+                    <Input
+                      id="areaOpt"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.areaHectares ?? ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          areaHectares: e.target.value
+                            ? Number(e.target.value)
+                            : null,
+                        })
+                      }
+                    />
+                  </div>
+                </>
+              )}
             </div>
             <DialogFooter>
               <Button
@@ -281,9 +430,9 @@ export const Fields = () => {
                   resetForm();
                 }}
               >
-                Cancel
+                Cancelar
               </Button>
-              <Button onClick={handleCreate}>Create Field</Button>
+              <Button onClick={handleCreate}>Criar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -292,12 +441,38 @@ export const Fields = () => {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit Field</DialogTitle>
-              <DialogDescription>Update field information.</DialogDescription>
+              <DialogTitle>Editar local de trabalho</DialogTitle>
+              <DialogDescription>Altere as informações do local.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-code">Code *</Label>
+                <Label htmlFor="edit-type">Tipo *</Label>
+                <Select
+                  value={formData.typeId}
+                  onValueChange={(value) => {
+                    const t = workLocationTypes.find((x) => x.id === value);
+                    setFormData({
+                      ...formData,
+                      typeId: value,
+                      areaHectares: t?.isTalhao ? formData.areaHectares ?? 1 : formData.areaHectares,
+                      costCenterId: t?.isTalhao ? null : formData.costCenterId,
+                    });
+                  }}
+                >
+                  <SelectTrigger id="edit-type">
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workLocationTypes.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-code">Código *</Label>
                 <Input
                   id="edit-code"
                   value={formData.code}
@@ -307,7 +482,7 @@ export const Fields = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-name">Name *</Label>
+                <Label htmlFor="edit-name">Nome *</Label>
                 <Input
                   id="edit-name"
                   value={formData.name}
@@ -316,22 +491,68 @@ export const Fields = () => {
                   }
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-area">Area (ha) *</Label>
-                <Input
-                  id="edit-area"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.areaHectares}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      areaHectares: Number(e.target.value),
-                    })
-                  }
-                />
-              </div>
+              {selectedType?.isTalhao && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-area">Área (ha) *</Label>
+                  <Input
+                    id="edit-area"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={formData.areaHectares ?? ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        areaHectares: e.target.value
+                          ? Number(e.target.value)
+                          : null,
+                      })
+                    }
+                  />
+                </div>
+              )}
+              {selectedType && !selectedType.isTalhao && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-costCenter">Centro de custo *</Label>
+                    <Select
+                      value={formData.costCenterId ?? ''}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, costCenterId: value || null })
+                      }
+                    >
+                      <SelectTrigger id="edit-costCenter">
+                        <SelectValue placeholder="Selecione o centro de custo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {costCenters.map((cc) => (
+                          <SelectItem key={cc.id} value={cc.id}>
+                            {cc.code} - {cc.description}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-areaOpt">Área (ha) – opcional</Label>
+                    <Input
+                      id="edit-areaOpt"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.areaHectares ?? ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          areaHectares: e.target.value
+                            ? Number(e.target.value)
+                            : null,
+                        })
+                      }
+                    />
+                  </div>
+                </>
+              )}
             </div>
             <DialogFooter>
               <Button
@@ -342,9 +563,9 @@ export const Fields = () => {
                   resetForm();
                 }}
               >
-                Cancel
+                Cancelar
               </Button>
-              <Button onClick={handleEdit}>Update Field</Button>
+              <Button onClick={handleEdit}>Atualizar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -352,4 +573,3 @@ export const Fields = () => {
     </Layout>
   );
 };
-

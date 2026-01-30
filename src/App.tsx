@@ -12,6 +12,7 @@ import { CostCenters } from '@/pages/CostCenters';
 import { ManagementAccounts } from '@/pages/ManagementAccounts';
 import { CostCenterCategories } from '@/pages/CostCenterCategories';
 import { Fields } from '@/pages/Fields';
+import { WorkLocationTypes } from '@/pages/WorkLocationTypes';
 import { Seasons } from '@/pages/Seasons';
 import { MachineTypes } from '@/pages/MachineTypes';
 import { Machines } from '@/pages/Machines';
@@ -81,6 +82,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Fields />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/work-location-types"
+            element={
+              <ProtectedRoute>
+                <WorkLocationTypes />
               </ProtectedRoute>
             }
           />

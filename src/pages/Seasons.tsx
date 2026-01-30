@@ -21,7 +21,7 @@ import {
   Season,
   CreateSeasonRequest,
   UpdateSeasonRequest,
-  Field,
+  WorkLocation,
   SeasonFieldLink,
   CostCenter,
 } from '@/services/api';
@@ -34,7 +34,7 @@ export const Seasons = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Season | null>(null);
 
-  const [allFields, setAllFields] = useState<Field[]>([]);
+  const [allTalhoes, setAllTalhoes] = useState<WorkLocation[]>([]);
   const [lavouraCostCenters, setLavouraCostCenters] = useState<CostCenter[]>([]);
   const [showFieldsDialog, setShowFieldsDialog] = useState(false);
   const [fieldsDialogSeason, setFieldsDialogSeason] = useState<Season | null>(null);
@@ -64,12 +64,12 @@ export const Seasons = () => {
     const init = async () => {
       await loadItems();
       try {
-        const [fields, costCenters, categories] = await Promise.all([
-          apiService.getFields(),
+        const [workLocations, costCenters, categories] = await Promise.all([
+          apiService.getWorkLocations(),
           apiService.getCostCenters(),
           apiService.getCostCenterCategories(),
         ]);
-        setAllFields(fields);
+        setAllTalhoes(workLocations.filter((w) => w.isTalhao && w.isActive));
         const lavouraCategoryIds = categories
           .filter((c) => c.isActive && c.code === 'LAV')
           .map((c) => c.id);
@@ -79,7 +79,7 @@ export const Seasons = () => {
           ),
         );
       } catch (err) {
-        console.error('Failed to load fields or cost centers for seasons page', err);
+        console.error('Failed to load work locations or cost centers for seasons page', err);
       }
     };
     init();
@@ -196,13 +196,13 @@ export const Seasons = () => {
   const isFieldSelected = (fieldId: string) =>
     fieldsDialogLinks.some((l) => l.fieldId === fieldId);
 
-  const getFieldAreaForDialog = (field: Field): number => {
+  const getFieldAreaForDialog = (field: WorkLocation): number => {
     const link = fieldsDialogLinks.find((l) => l.fieldId === field.id);
     if (link) return link.areaHectares;
-    return Number(field.areaHectares);
+    return field.areaHectares ?? 0;
   };
 
-  const toggleFieldSelection = (field: Field, checked: boolean) => {
+  const toggleFieldSelection = (field: WorkLocation, checked: boolean) => {
     setFieldsDialogLinks((prev) => {
       if (checked) {
         if (prev.some((l) => l.fieldId === field.id)) return prev;
@@ -211,7 +211,7 @@ export const Seasons = () => {
           ...prev,
           {
             fieldId: field.id,
-            areaHectares: Number(field.areaHectares),
+            areaHectares: field.areaHectares ?? 0,
             costCenterId: defaultCc ? defaultCc.id : '',
           },
         ];
@@ -337,7 +337,7 @@ export const Seasons = () => {
                               className="h-8 px-2"
                               onClick={() => openFieldsDialog(item)}
                             >
-                              Fields
+                              Talhões da safra
                             </Button>
                             <Button
                               variant="ghost"
@@ -463,13 +463,13 @@ export const Seasons = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Link Fields to Season Dialog */}
+        {/* Link Talhões to Season Dialog */}
         <Dialog open={showFieldsDialog} onOpenChange={setShowFieldsDialog}>
           <DialogContent className="max-w-xl">
             <DialogHeader>
-              <DialogTitle>Fields for Season</DialogTitle>
+              <DialogTitle>Talhões da safra</DialogTitle>
               <DialogDescription>
-                Select which fields belong to this season and adjust the area used.
+                Selecione quais talhões pertencem a esta safra e ajuste a área utilizada.
               </DialogDescription>
             </DialogHeader>
             {fieldsDialogSeason && (
@@ -480,26 +480,26 @@ export const Seasons = () => {
                   {formatDate(fieldsDialogSeason.endDate)})
                 </p>
                 <div className="border rounded-md max-h-72 overflow-auto">
-                  {allFields.length === 0 ? (
+                  {allTalhoes.length === 0 ? (
                     <div className="p-4 text-sm text-muted-foreground">
-                      No fields available. Create fields first.
+                      Nenhum talhão disponível. Cadastre locais de trabalho do tipo Talhão primeiro.
                     </div>
                   ) : (
                     <table className="w-full text-sm">
                       <thead className="bg-muted">
                         <tr>
-                          <th className="px-3 py-2 text-left">Use</th>
-                          <th className="px-3 py-2 text-left">Field</th>
-                          <th className="px-3 py-2 text-left">Area (ha)</th>
-                          <th className="px-3 py-2 text-left">Cost Center (Lavoura)</th>
+                          <th className="px-3 py-2 text-left">Usar</th>
+                          <th className="px-3 py-2 text-left">Talhão</th>
+                          <th className="px-3 py-2 text-left">Área (ha)</th>
+                          <th className="px-3 py-2 text-left">Centro de custo (Lavoura)</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {allFields.map((field) => {
+                        {allTalhoes.map((field) => {
                           const selected = isFieldSelected(field.id);
                           const areaValue = selected
                             ? getFieldAreaForDialog(field)
-                            : Number(field.areaHectares);
+                            : (field.areaHectares ?? 0);
                           const link = fieldsDialogLinks.find((l) => l.fieldId === field.id);
                           return (
                             <tr key={field.id} className="border-t">
