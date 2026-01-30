@@ -13,8 +13,12 @@ import {
   UpdateOrganizationRequest,
   DocumentType,
   CreateDocumentTypeRequest,
+  StockMovementType,
+  StockMovementDirection,
+  CreateStockMovementTypeRequest,
+  UpdateStockMovementTypeRequest,
 } from '@/services/api';
-import { Search, Plus, Edit, Trash2, Building2, CheckCircle, XCircle, FileText } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Building2, CheckCircle, XCircle, FileText, ArrowLeftRight } from 'lucide-react';
 import { useAuthorization } from '@/hooks/useAuthorization';
 
 export const SuperAdmin = () => {
@@ -22,13 +26,20 @@ export const SuperAdmin = () => {
   const location = useLocation();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
+  const [stockMovementTypes, setStockMovementTypes] = useState<StockMovementType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [docTypeSearch, setDocTypeSearch] = useState('');
+  const [smtSearch, setSmtSearch] = useState('');
   
   // Determine which section to show based on URL hash
-  const activeSection = location.hash === '#document-types' ? 'document-types' : 'organizations';
+  const activeSection =
+    location.hash === '#document-types'
+      ? 'document-types'
+      : location.hash === '#stock-movement-types'
+        ? 'stock-movement-types'
+        : 'organizations';
   
   // Create modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -57,10 +68,26 @@ export const SuperAdmin = () => {
     hasAccessKey: false,
   });
 
+  // Stock movement type modals
+  const [showCreateSmtModal, setShowCreateSmtModal] = useState(false);
+  const [newSmt, setNewSmt] = useState<CreateStockMovementTypeRequest>({
+    code: '',
+    name: '',
+    direction: StockMovementDirection.ENTRADA,
+  });
+  const [showEditSmtModal, setShowEditSmtModal] = useState(false);
+  const [editingSmt, setEditingSmt] = useState<StockMovementType | null>(null);
+  const [editSmtForm, setEditSmtForm] = useState<UpdateStockMovementTypeRequest>({
+    code: '',
+    name: '',
+    direction: StockMovementDirection.ENTRADA,
+  });
+
   useEffect(() => {
     if (isSuperAdmin) {
       loadOrganizations();
       loadDocumentTypes();
+      loadStockMovementTypes();
     }
   }, [isSuperAdmin]);
 
@@ -94,6 +121,16 @@ export const SuperAdmin = () => {
       setDocumentTypes(data);
     } catch (err: any) {
       setError(err.message || 'Failed to load document types');
+    }
+  };
+
+  const loadStockMovementTypes = async () => {
+    try {
+      setError(null);
+      const data = await apiService.getStockMovementTypes();
+      setStockMovementTypes(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load stock movement types');
     }
   };
 
@@ -157,6 +194,49 @@ export const SuperAdmin = () => {
     }
   };
 
+  const handleCreateStockMovementType = async () => {
+    try {
+      await apiService.createStockMovementType(newSmt);
+      setShowCreateSmtModal(false);
+      setNewSmt({ code: '', name: '', direction: StockMovementDirection.ENTRADA });
+      await loadStockMovementTypes();
+    } catch (err: any) {
+      setError(err.message || 'Failed to create stock movement type');
+    }
+  };
+
+  const openEditSmtModal = (smt: StockMovementType) => {
+    setEditingSmt(smt);
+    setEditSmtForm({
+      code: smt.code,
+      name: smt.name,
+      direction: smt.direction,
+    });
+    setShowEditSmtModal(true);
+  };
+
+  const handleUpdateStockMovementType = async () => {
+    if (!editingSmt) return;
+    try {
+      await apiService.updateStockMovementType(editingSmt.id, editSmtForm);
+      setShowEditSmtModal(false);
+      setEditingSmt(null);
+      await loadStockMovementTypes();
+    } catch (err: any) {
+      setError(err.message || 'Failed to update stock movement type');
+    }
+  };
+
+  const handleDeleteStockMovementType = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este tipo de movimento de estoque?')) return;
+    try {
+      await apiService.deleteStockMovementType(id);
+      await loadStockMovementTypes();
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete stock movement type');
+    }
+  };
+
   const openEditModal = (org: Organization) => {
     setEditingOrg(org);
     setEditFormData({
@@ -209,6 +289,12 @@ export const SuperAdmin = () => {
 
   const filteredDocumentTypes = documentTypes.filter((dt) =>
     dt.name.toLowerCase().includes(docTypeSearch.toLowerCase()),
+  );
+
+  const filteredStockMovementTypes = stockMovementTypes.filter(
+    (smt) =>
+      smt.name.toLowerCase().includes(smtSearch.toLowerCase()) ||
+      smt.code.toLowerCase().includes(smtSearch.toLowerCase()),
   );
 
   if (!isSuperAdmin) {
@@ -323,6 +409,98 @@ export const SuperAdmin = () => {
                             <Trash2 className="h-4 w-4 text-red-600" />
                           </Button>
                         </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          )}
+
+          {/* Stock Movement Types Card */}
+          {activeSection === 'stock-movement-types' && (
+          <Card id="stock-movement-types">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <ArrowLeftRight className="h-5 w-5" />
+                    Tipos de movimento de estoque
+                  </CardTitle>
+                  <CardDescription>
+                    Entrada inicial, compra, venda, consumo, entrada/saída de ajuste. Tipos de sistema não podem ser editados.
+                  </CardDescription>
+                </div>
+                <Button onClick={() => setShowCreateSmtModal(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Adicionar tipo
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <Input
+                    type="text"
+                    placeholder="Buscar por nome ou código..."
+                    value={smtSearch}
+                    onChange={(e) => setSmtSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              {filteredStockMovementTypes.length === 0 ? (
+                <p className="text-sm text-gray-500">Nenhum tipo de movimento de estoque. Execute o seed no servidor para criar os padrões do sistema.</p>
+              ) : (
+                <div className="space-y-2">
+                  {filteredStockMovementTypes.map((smt) => (
+                    <div
+                      key={smt.id}
+                      className="flex items-center justify-between border rounded-lg px-4 py-2"
+                    >
+                      <div>
+                        <p className="font-medium flex items-center gap-2">
+                          {smt.code}
+                          {smt.isSystem && (
+                            <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
+                              Sistema
+                            </span>
+                          )}
+                          {!smt.isActive && (
+                            <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded">
+                              Inativo
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {smt.name} · Sentido: {smt.direction === StockMovementDirection.ENTRADA ? 'Entrada' : 'Saída'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!smt.isSystem && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditSmtModal(smt)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteStockMovementType(smt.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </>
+                        )}
+                        {smt.isSystem && (
+                          <span className="text-xs text-gray-500">Não editável</span>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -633,6 +811,126 @@ export const SuperAdmin = () => {
                 </Button>
                 <Button onClick={handleUpdateOrganization}>
                   Save Changes
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Create Stock Movement Type Modal */}
+          <Dialog open={showCreateSmtModal} onOpenChange={setShowCreateSmtModal}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Novo tipo de movimento de estoque</DialogTitle>
+                <DialogDescription>
+                  Código, nome e sentido (entrada ou saída). Códigos como ENTRADA_INICIAL, COMPRA, VENDA são reservados ao sistema.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="smt-code">Código *</Label>
+                  <Input
+                    id="smt-code"
+                    value={newSmt.code}
+                    onChange={(e) => setNewSmt({ ...newSmt, code: e.target.value.toUpperCase() })}
+                    placeholder="ex.: MEU_TIPO"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="smt-name">Nome *</Label>
+                  <Input
+                    id="smt-name"
+                    value={newSmt.name}
+                    onChange={(e) => setNewSmt({ ...newSmt, name: e.target.value })}
+                    placeholder="ex.: Entrada por doação"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="smt-direction">Sentido</Label>
+                  <select
+                    id="smt-direction"
+                    className="w-full border rounded-md px-3 py-2"
+                    value={newSmt.direction}
+                    onChange={(e) =>
+                      setNewSmt({
+                        ...newSmt,
+                        direction: e.target.value as StockMovementDirection,
+                      })
+                    }
+                  >
+                    <option value={StockMovementDirection.ENTRADA}>Entrada</option>
+                    <option value={StockMovementDirection.SAIDA}>Saída</option>
+                  </select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowCreateSmtModal(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleCreateStockMovementType}
+                  disabled={!newSmt.code.trim() || !newSmt.name.trim()}
+                >
+                  Criar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Stock Movement Type Modal */}
+          <Dialog open={showEditSmtModal} onOpenChange={setShowEditSmtModal}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Editar tipo de movimento de estoque</DialogTitle>
+                <DialogDescription>
+                  Código, nome e sentido. Tipos de sistema não aparecem aqui para edição.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-smt-code">Código *</Label>
+                  <Input
+                    id="edit-smt-code"
+                    value={editSmtForm.code ?? ''}
+                    onChange={(e) =>
+                      setEditSmtForm({ ...editSmtForm, code: e.target.value.toUpperCase() })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-smt-name">Nome *</Label>
+                  <Input
+                    id="edit-smt-name"
+                    value={editSmtForm.name ?? ''}
+                    onChange={(e) => setEditSmtForm({ ...editSmtForm, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-smt-direction">Sentido</Label>
+                  <select
+                    id="edit-smt-direction"
+                    className="w-full border rounded-md px-3 py-2"
+                    value={editSmtForm.direction ?? StockMovementDirection.ENTRADA}
+                    onChange={(e) =>
+                      setEditSmtForm({
+                        ...editSmtForm,
+                        direction: e.target.value as StockMovementDirection,
+                      })
+                    }
+                  >
+                    <option value={StockMovementDirection.ENTRADA}>Entrada</option>
+                    <option value={StockMovementDirection.SAIDA}>Saída</option>
+                  </select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => { setShowEditSmtModal(false); setEditingSmt(null); }}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleUpdateStockMovementType}
+                  disabled={!editSmtForm.code?.trim() || !editSmtForm.name?.trim()}
+                >
+                  Salvar
                 </Button>
               </DialogFooter>
             </DialogContent>

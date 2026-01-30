@@ -13,6 +13,7 @@ import {
   Shield,
   UserCog,
   FileText,
+  ArrowLeftRight,
   ChevronDown,
   ChevronRight,
   Wallet,
@@ -224,6 +225,20 @@ export const Sidebar = () => {
                     >
                       <FileText className="h-4 w-4" />
                       Document Type
+                    </Link>
+                    <Link
+                      to="/super-admin#stock-movement-types"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={cn(
+                        'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors',
+                        location.pathname === '/super-admin' &&
+                          location.hash === '#stock-movement-types'
+                          ? 'bg-primary/90 text-primary-foreground'
+                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                      )}
+                    >
+                      <ArrowLeftRight className="h-4 w-4" />
+                      Tipos de movimento de estoque
                     </Link>
                   </div>
                 )}

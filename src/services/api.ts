@@ -327,6 +327,37 @@ export interface UpdateWorkLocationTypeRequest {
   isActive?: boolean;
 }
 
+// Stock movement type (tipo de movimento de estoque; only SuperAdmin can manage in UI)
+export enum StockMovementDirection {
+  ENTRADA = 'ENTRADA',
+  SAIDA = 'SAIDA',
+}
+
+export interface StockMovementType {
+  id: string;
+  tenantId: string | null;
+  code: string;
+  name: string;
+  direction: StockMovementDirection;
+  isSystem: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateStockMovementTypeRequest {
+  code: string;
+  name: string;
+  direction: StockMovementDirection;
+}
+
+export interface UpdateStockMovementTypeRequest {
+  code?: string;
+  name?: string;
+  direction?: StockMovementDirection;
+  isActive?: boolean;
+}
+
 export interface WorkLocation {
   id: string;
   tenantId: string;
@@ -1114,6 +1145,44 @@ class ApiService {
 
   async deleteWorkLocationType(id: string): Promise<void> {
     const response = await this.fetchWithRetry(`${this.baseUrl}/api/work-location-types/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    await this.handleResponse<void>(response);
+  }
+
+  // Stock movement types (tipos de movimento de estoque; only SuperAdmin can access in UI)
+  async getStockMovementTypes(): Promise<StockMovementType[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/stock-movement-types`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<StockMovementType[]>(response);
+  }
+
+  async createStockMovementType(data: CreateStockMovementTypeRequest): Promise<StockMovementType> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/stock-movement-types`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<StockMovementType>(response);
+  }
+
+  async updateStockMovementType(
+    id: string,
+    data: UpdateStockMovementTypeRequest,
+  ): Promise<StockMovementType> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/stock-movement-types/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<StockMovementType>(response);
+  }
+
+  async deleteStockMovementType(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/stock-movement-types/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
