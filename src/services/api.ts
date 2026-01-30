@@ -358,6 +358,47 @@ export interface UpdateStockMovementTypeRequest {
   isActive?: boolean;
 }
 
+// Stock movement (movimento de estoque)
+export interface StockMovement {
+  id: string;
+  tenantId: string;
+  movementDate: string; // ISO date
+  stockMovementTypeId: string;
+  itemId: string;
+  unit: string;
+  quantity: number;
+  workLocationId: string | null;
+  seasonId: string | null;
+  costCenterId: string | null;
+  managementAccountId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateStockMovementRequest {
+  movementDate: string;
+  stockMovementTypeId: string;
+  itemId: string;
+  unit: string;
+  quantity: number;
+  workLocationId?: string | null;
+  seasonId?: string | null;
+  costCenterId?: string | null;
+  managementAccountId?: string | null;
+}
+
+export interface UpdateStockMovementRequest {
+  movementDate?: string;
+  stockMovementTypeId?: string;
+  itemId?: string;
+  unit?: string;
+  quantity?: number;
+  workLocationId?: string | null;
+  seasonId?: string | null;
+  costCenterId?: string | null;
+  managementAccountId?: string | null;
+}
+
 export interface WorkLocation {
   id: string;
   tenantId: string;
@@ -1183,6 +1224,52 @@ class ApiService {
 
   async deleteStockMovementType(id: string): Promise<void> {
     const response = await this.fetchWithRetry(`${this.baseUrl}/api/stock-movement-types/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    await this.handleResponse<void>(response);
+  }
+
+  // Stock movements (movimentos de estoque)
+  async getStockMovements(): Promise<StockMovement[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/stock-movements`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<StockMovement[]>(response);
+  }
+
+  async getStockMovement(id: string): Promise<StockMovement> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/stock-movements/${id}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<StockMovement>(response);
+  }
+
+  async createStockMovement(data: CreateStockMovementRequest): Promise<StockMovement> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/stock-movements`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<StockMovement>(response);
+  }
+
+  async updateStockMovement(
+    id: string,
+    data: UpdateStockMovementRequest,
+  ): Promise<StockMovement> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/stock-movements/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<StockMovement>(response);
+  }
+
+  async deleteStockMovement(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/stock-movements/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });

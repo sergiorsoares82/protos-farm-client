@@ -49,6 +49,7 @@ const navItems: NavItem[] = [
     roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
   },
   { name: 'Seasons (Safras)', path: '/seasons', icon: CalendarRange, roles: 'all' },
+  { name: 'Movimentos de Estoque', path: '/stock-movements', icon: ArrowLeftRight, roles: 'all' },
   { name: 'Machine Types', path: '/machine-types', icon: Truck, roles: 'all' },
   { name: 'Machines (Máquinas)', path: '/machines', icon: Truck, roles: 'all' },
   { name: 'Patrimônio (Ativos)', path: '/assets', icon: Box, roles: 'all' },
