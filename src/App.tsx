@@ -15,6 +15,7 @@ import { Fields } from '@/pages/Fields';
 import { WorkLocationTypes } from '@/pages/WorkLocationTypes';
 import { Seasons } from '@/pages/Seasons';
 import { StockMovements } from '@/pages/StockMovements';
+import { Invoices } from '@/pages/Invoices';
 import { MachineTypes } from '@/pages/MachineTypes';
 import { Machines } from '@/pages/Machines';
 import { Assets } from '@/pages/Assets';
@@ -107,6 +108,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <StockMovements />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/invoices"
+            element={
+              <ProtectedRoute>
+                <Invoices />
               </ProtectedRoute>
             }
           />

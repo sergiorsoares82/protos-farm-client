@@ -239,6 +239,87 @@ export interface UpdateItemRequest {
   category?: string;
 }
 
+// Invoice (Nota Fiscal) Types
+export enum InvoiceFinancialStatus {
+  PENDING = 'PENDING',
+  PAID = 'PAID',
+  OVERDUE = 'OVERDUE',
+}
+
+export interface InvoiceItemDTO {
+  id?: string;
+  itemId: string;
+  description?: string;
+  itemType: ItemType;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  lineOrder: number;
+}
+
+export interface InvoiceFinancialDTO {
+  id?: string;
+  dueDate: string;
+  amount: number;
+  paidAt?: string;
+  status?: InvoiceFinancialStatus;
+}
+
+export interface Invoice {
+  id: string;
+  tenantId: string;
+  number: string;
+  series?: string;
+  issueDate: string;
+  supplierId: string;
+  documentTypeId?: string;
+  notes?: string;
+  items: (InvoiceItemDTO & { id: string; invoiceId: string; totalPrice?: number })[];
+  financials: (InvoiceFinancialDTO & { id: string; invoiceId: string })[];
+  itemsTotal?: number;
+  financialsTotal?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateInvoiceRequest {
+  number: string;
+  series?: string;
+  issueDate: string;
+  supplierId: string;
+  documentTypeId?: string;
+  notes?: string;
+  items: InvoiceItemDTO[];
+  financials: InvoiceFinancialDTO[];
+}
+
+export interface UpdateInvoiceRequest {
+  number?: string;
+  series?: string;
+  issueDate?: string;
+  supplierId?: string;
+  documentTypeId?: string;
+  notes?: string;
+  items?: InvoiceItemDTO[];
+  financials?: InvoiceFinancialDTO[];
+}
+
+export interface Supplier {
+  id: string;
+  personId: string;
+  companyName: string;
+  taxId: string;
+  supplyCategories?: string | null;
+  paymentTerms?: string | null;
+  person: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    email: string;
+  } | null;
+}
+
 // Cost Center Types
 export enum CostCenterType {
   PRODUCTIVE = 'PRODUCTIVE',
@@ -1021,6 +1102,73 @@ class ApiService {
       headers: this.getAuthHeaders(),
     });
     await this.handleResponse<{ success: boolean }>(response);
+  }
+
+  // Invoice (Nota Fiscal) Management
+  async getInvoices(): Promise<Invoice[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/invoices`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: Invoice[] }>(response);
+    return data.data;
+  }
+
+  async getInvoice(id: string): Promise<Invoice> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/invoices/${id}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: Invoice }>(response);
+    return data.data;
+  }
+
+  async createInvoice(payload: CreateInvoiceRequest): Promise<Invoice> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/invoices`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: Invoice }>(response);
+    return data.data;
+  }
+
+  async updateInvoice(id: string, payload: UpdateInvoiceRequest): Promise<Invoice> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/invoices/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: Invoice }>(response);
+    return data.data;
+  }
+
+  async deleteInvoice(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/invoices/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    await this.handleResponse<{ success: boolean }>(response);
+  }
+
+  async markInvoiceFinancialAsPaid(invoiceId: string, financialId: string, paidAt?: string): Promise<Invoice> {
+    const url = `${this.baseUrl}/api/invoices/${invoiceId}/financials/${financialId}/mark-paid`;
+    const response = await this.fetchWithRetry(url, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(paidAt ? { paidAt } : {}),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: Invoice }>(response);
+    return data.data;
+  }
+
+  async getSuppliers(): Promise<Supplier[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/suppliers`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: Supplier[] }>(response);
+    return data.data;
   }
 
   // Cost Center Management
