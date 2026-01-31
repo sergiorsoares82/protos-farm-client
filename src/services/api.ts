@@ -435,6 +435,32 @@ export interface UpdateUnitOfMeasureRequest {
   isActive?: boolean;
 }
 
+// Unit of measure conversion (ex.: 1 T = 1000 KG; same access rules as unit of measure)
+export interface UnitOfMeasureConversion {
+  id: string;
+  tenantId: string | null;
+  fromUnitId: string;
+  toUnitId: string;
+  factor: number;
+  isSystem: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateUnitOfMeasureConversionRequest {
+  fromUnitId: string;
+  toUnitId: string;
+  /** 1 fromUnit = factor * toUnit */
+  factor: number;
+  /** SuperAdmin only: system-wide conversion for all organizations. */
+  isSystem?: boolean;
+  tenantId?: string | null;
+}
+
+export interface UpdateUnitOfMeasureConversionRequest {
+  factor?: number;
+}
+
 // Stock movement type (tipo de movimento de estoque; only SuperAdmin can manage in UI)
 export enum StockMovementDirection {
   ENTRADA = 'ENTRADA',
@@ -1402,6 +1428,52 @@ class ApiService {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
+    await this.handleResponse<void>(response);
+  }
+
+  // Unit of measure conversions (mesmas regras de acesso que unidades de medida)
+  async getUnitOfMeasureConversions(): Promise<UnitOfMeasureConversion[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/unit-of-measure-conversions`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<UnitOfMeasureConversion[]>(response);
+  }
+
+  async createUnitOfMeasureConversion(
+    data: CreateUnitOfMeasureConversionRequest,
+  ): Promise<UnitOfMeasureConversion> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/unit-of-measure-conversions`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<UnitOfMeasureConversion>(response);
+  }
+
+  async updateUnitOfMeasureConversion(
+    id: string,
+    data: UpdateUnitOfMeasureConversionRequest,
+  ): Promise<UnitOfMeasureConversion> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/unit-of-measure-conversions/${id}`,
+      {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(data),
+      },
+    );
+    return await this.handleResponse<UnitOfMeasureConversion>(response);
+  }
+
+  async deleteUnitOfMeasureConversion(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/unit-of-measure-conversions/${id}`,
+      {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+      },
+    );
     await this.handleResponse<void>(response);
   }
 

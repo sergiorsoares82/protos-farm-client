@@ -14,6 +14,7 @@ import { CostCenterCategories } from '@/pages/CostCenterCategories';
 import { Fields } from '@/pages/Fields';
 import { WorkLocationTypes } from '@/pages/WorkLocationTypes';
 import { UnitOfMeasures } from '@/pages/UnitOfMeasures';
+import { UnitOfMeasureConversions } from '@/pages/UnitOfMeasureConversions';
 import { Seasons } from '@/pages/Seasons';
 import { StockMovements } from '@/pages/StockMovements';
 import { Invoices } from '@/pages/Invoices';
@@ -101,6 +102,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <UnitOfMeasures />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/unit-of-measure-conversions"
+            element={
+              <ProtectedRoute>
+                <UnitOfMeasureConversions />
               </ProtectedRoute>
             }
           />

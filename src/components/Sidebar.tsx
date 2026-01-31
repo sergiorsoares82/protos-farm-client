@@ -24,6 +24,7 @@ import {
   Truck,
   Box,
   Ruler,
+  Repeat,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -53,6 +54,12 @@ const navItems: NavItem[] = [
     name: 'Unidades de medida',
     path: '/unit-of-measures',
     icon: Ruler,
+    roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
+  },
+  {
+    name: 'Conversões de medida',
+    path: '/unit-of-measure-conversions',
+    icon: Repeat,
     roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
   },
   { name: 'Seasons (Safras)', path: '/seasons', icon: CalendarRange, roles: 'all' },
