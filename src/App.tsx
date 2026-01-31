@@ -13,6 +13,7 @@ import { ManagementAccounts } from '@/pages/ManagementAccounts';
 import { CostCenterCategories } from '@/pages/CostCenterCategories';
 import { Fields } from '@/pages/Fields';
 import { WorkLocationTypes } from '@/pages/WorkLocationTypes';
+import { UnitOfMeasures } from '@/pages/UnitOfMeasures';
 import { Seasons } from '@/pages/Seasons';
 import { StockMovements } from '@/pages/StockMovements';
 import { Invoices } from '@/pages/Invoices';
@@ -92,6 +93,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <WorkLocationTypes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/unit-of-measures"
+            element={
+              <ProtectedRoute>
+                <UnitOfMeasures />
               </ProtectedRoute>
             }
           />

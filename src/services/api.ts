@@ -408,6 +408,33 @@ export interface UpdateWorkLocationTypeRequest {
   isActive?: boolean;
 }
 
+// Unit of measure (unidade de medida: system + per-org; SuperAdmin/OrgAdmin)
+export interface UnitOfMeasure {
+  id: string;
+  tenantId: string | null;
+  code: string;
+  name: string;
+  isSystem: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateUnitOfMeasureRequest {
+  code: string;
+  name: string;
+  /** SuperAdmin only: create system-wide unit for all organizations. */
+  isSystem?: boolean;
+  /** SuperAdmin only: create for specific org; omit for current tenant. */
+  tenantId?: string | null;
+}
+
+export interface UpdateUnitOfMeasureRequest {
+  code?: string;
+  name?: string;
+  isActive?: boolean;
+}
+
 // Stock movement type (tipo de movimento de estoque; only SuperAdmin can manage in UI)
 export enum StockMovementDirection {
   ENTRADA = 'ENTRADA',
@@ -1334,6 +1361,44 @@ class ApiService {
 
   async deleteWorkLocationType(id: string): Promise<void> {
     const response = await this.fetchWithRetry(`${this.baseUrl}/api/work-location-types/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    await this.handleResponse<void>(response);
+  }
+
+  // Unit of measure (unidade de medida)
+  async getUnitOfMeasures(): Promise<UnitOfMeasure[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/unit-of-measures`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<UnitOfMeasure[]>(response);
+  }
+
+  async createUnitOfMeasure(data: CreateUnitOfMeasureRequest): Promise<UnitOfMeasure> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/unit-of-measures`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<UnitOfMeasure>(response);
+  }
+
+  async updateUnitOfMeasure(
+    id: string,
+    data: UpdateUnitOfMeasureRequest,
+  ): Promise<UnitOfMeasure> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/unit-of-measures/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<UnitOfMeasure>(response);
+  }
+
+  async deleteUnitOfMeasure(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/unit-of-measures/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });

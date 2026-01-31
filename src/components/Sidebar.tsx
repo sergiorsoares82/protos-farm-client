@@ -23,6 +23,7 @@ import {
   CalendarRange,
   Truck,
   Box,
+  Ruler,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -46,6 +47,12 @@ const navItems: NavItem[] = [
     name: 'Tipos de local de trabalho',
     path: '/work-location-types',
     icon: Tags,
+    roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
+  },
+  {
+    name: 'Unidades de medida',
+    path: '/unit-of-measures',
+    icon: Ruler,
     roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
   },
   { name: 'Seasons (Safras)', path: '/seasons', icon: CalendarRange, roles: 'all' },
