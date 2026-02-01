@@ -16,6 +16,7 @@ export interface AutocompleteWithCreateProps {
   value?: string
   onChange?: (value: string) => void
   onCreateClick?: (searchTerm: string) => void
+  onDropdownOpenChange?: (open: boolean) => void
   placeholder?: string
   className?: string
   disabled?: boolean
@@ -29,6 +30,7 @@ export const AutocompleteWithCreate = React.forwardRef<HTMLInputElement, Autocom
     value, 
     onChange, 
     onCreateClick,
+    onDropdownOpenChange,
     placeholder = "Digite para buscar...", 
     className, 
     disabled, 
@@ -40,6 +42,8 @@ export const AutocompleteWithCreate = React.forwardRef<HTMLInputElement, Autocom
     const [highlightedIndex, setHighlightedIndex] = React.useState(-1)
     const containerRef = React.useRef<HTMLDivElement>(null)
     const inputRef = React.useRef<HTMLInputElement>(null)
+    const dropdownRef = React.useRef<HTMLDivElement>(null)
+    const justSelectedRef = React.useRef(false)
 
     const selectedOption = options.find((opt) => opt.value === value)
 
@@ -57,16 +61,30 @@ export const AutocompleteWithCreate = React.forwardRef<HTMLInputElement, Autocom
     }, [searchTerm, filteredOptions.length, value, selectedOption, onCreateClick])
 
     React.useEffect(() => {
-      if (selectedOption) {
-        setSearchTerm(selectedOption.label)
-      } else if (!value) {
-        setSearchTerm("")
+      onDropdownOpenChange?.(isOpen)
+    }, [isOpen, onDropdownOpenChange])
+
+    // Só sincroniza o texto quando o dropdown está fechado; quando aberto deixa o usuário editar
+    React.useEffect(() => {
+      if (!isOpen) {
+        if (selectedOption) {
+          setSearchTerm(selectedOption.label)
+        } else if (!value) {
+          setSearchTerm("")
+        }
       }
     }, [selectedOption, value, isOpen])
 
     React.useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
-        if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        if (justSelectedRef.current) {
+          justSelectedRef.current = false
+          return
+        }
+        const target = event.target as Node
+        const inContainer = containerRef.current?.contains(target)
+        const inDropdown = dropdownRef.current?.contains(target)
+        if (!inContainer && !inDropdown) {
           setIsOpen(false)
           if (selectedOption) {
             setSearchTerm(selectedOption.label)
@@ -92,6 +110,7 @@ export const AutocompleteWithCreate = React.forwardRef<HTMLInputElement, Autocom
     }
 
     const handleSelect = (option: AutocompleteOption) => {
+      justSelectedRef.current = true
       onChange?.(option.value)
       setSearchTerm(option.label)
       setIsOpen(false)
@@ -149,36 +168,52 @@ export const AutocompleteWithCreate = React.forwardRef<HTMLInputElement, Autocom
               className="pr-8"
             />
             <ChevronsUpDown className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            {isOpen && filteredOptions.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-popover border border-input rounded-md shadow-md max-h-60 overflow-auto">
-                {filteredOptions.map((option, index) => (
-                  <div
-                    key={option.value}
-                    onClick={() => handleSelect(option)}
-                    className={cn(
-                      "flex items-center px-3 py-2 cursor-pointer text-sm",
-                      "hover:bg-accent hover:text-accent-foreground",
-                      index === highlightedIndex && "bg-accent text-accent-foreground",
-                      option.value === value && "bg-accent/50"
-                    )}
-                  >
-                    {option.value === value && (
-                      <Check className="mr-2 h-4 w-4 text-primary" />
-                    )}
-                    <span className={cn(option.value === value && "font-medium")}>
-                      {option.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {isOpen && filteredOptions.length === 0 && searchTerm.trim() && !showCreateButton && (
-              <div className="absolute z-50 w-full mt-1 bg-popover border border-input rounded-md shadow-md">
-                <div className="px-3 py-2 text-sm text-muted-foreground">
-                  {emptyMessage}
+            {isOpen &&
+              (filteredOptions.length > 0 ? (
+                <div
+                  ref={dropdownRef}
+                  className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-auto rounded-md border border-input bg-popover shadow-md"
+                >
+                  {filteredOptions.map((option, index) => (
+                    <div
+                      key={option.value}
+                      role="option"
+                      data-option-value={option.value}
+                      aria-selected={option.value === value}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        handleSelect(option)
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        handleSelect(option)
+                      }}
+                      className={cn(
+                        "flex cursor-pointer items-center px-3 py-2 text-sm",
+                        "hover:bg-accent hover:text-accent-foreground",
+                        index === highlightedIndex && "bg-accent text-accent-foreground",
+                        option.value === value && "bg-accent/50"
+                      )}
+                    >
+                      {option.value === value && (
+                        <Check className="mr-2 h-4 w-4 text-primary" />
+                      )}
+                      <span className={cn(option.value === value && "font-medium")}>
+                        {option.label}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            )}
+              ) : searchTerm.trim() && !showCreateButton ? (
+                <div
+                  ref={dropdownRef}
+                  className="absolute left-0 right-0 top-full z-50 mt-1 rounded-md border border-input bg-popover shadow-md"
+                >
+                  <div className="px-3 py-2 text-sm text-muted-foreground">
+                    {emptyMessage}
+                  </div>
+                </div>
+              ) : null)}
           </div>
           {showCreateButton && (
             <Button

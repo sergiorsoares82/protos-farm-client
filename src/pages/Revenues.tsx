@@ -85,6 +85,7 @@ export const Revenues = () => {
     unit: '',
   });
   const [itemFormError, setItemFormError] = useState<string | null>(null);
+  const [itemAutocompleteOpenCount, setItemAutocompleteOpenCount] = useState(0);
 
   const loadInvoices = async () => {
     try {
@@ -702,7 +703,9 @@ export const Revenues = () => {
                 {(formData.items?.length ?? 0) === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhum item. Adicione pelo menos um.</p>
                 ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                  <div
+                    className={`space-y-2 max-h-48 ${itemAutocompleteOpenCount > 0 ? 'overflow-visible' : 'overflow-y-auto'}`}
+                  >
                     {(formData.items ?? []).map((line, index) => (
                       <div
                         key={index}
@@ -717,6 +720,9 @@ export const Revenues = () => {
                             }))}
                             value={line.itemId}
                             onChange={(value) => onItemSelect(index, value)}
+                            onDropdownOpenChange={(open) =>
+                              setItemAutocompleteOpenCount((c) => (open ? c + 1 : Math.max(0, c - 1)))
+                            }
                             onCreateClick={(searchTerm) => handleCreateItemClick(index, searchTerm)}
                             placeholder="Digite para buscar..."
                             emptyMessage="Nenhum item encontrado"

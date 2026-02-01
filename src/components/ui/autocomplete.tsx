@@ -38,11 +38,14 @@ export const Autocomplete = React.forwardRef<HTMLInputElement, AutocompleteProps
       return options.filter((opt) => opt.label.toLowerCase().includes(term))
     }, [options, searchTerm])
 
+    // Só sincroniza o texto quando o dropdown está fechado; quando aberto deixa o usuário editar
     React.useEffect(() => {
-      if (selectedOption) {
-        setSearchTerm(selectedOption.label)
-      } else if (!isOpen) {
-        setSearchTerm("")
+      if (!isOpen) {
+        if (selectedOption) {
+          setSearchTerm(selectedOption.label)
+        } else {
+          setSearchTerm("")
+        }
       }
     }, [selectedOption, isOpen])
 
