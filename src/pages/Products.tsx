@@ -43,6 +43,8 @@ export const Products = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [unitOfMeasures, setUnitOfMeasures] = useState<UnitOfMeasure[]>([]);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Form state
   const [formData, setFormData] = useState<CreateItemRequest>({
@@ -93,42 +95,53 @@ export const Products = () => {
     setFormData(prev => ({ ...prev, type: value as ItemType }));
   };
 
-  // Validate form
-  const validateForm = (): string | null => {
+  // Validate form – returns general message + field-specific errors
+  const validateForm = (): { formError: string | null; fieldErrors: Record<string, string> } => {
+    const fieldErrors: Record<string, string> = {};
+
     if (!formData.name.trim()) {
-      return 'Name is required';
+      fieldErrors.name = 'Nome é obrigatório';
     }
 
     if (activeTab === ItemType.PRODUCT && formData.isStockControlled) {
       if (!formData.initialStockDate) {
-        return 'Initial stock date is required when stock control is enabled';
+        fieldErrors.initialStockDate = 'Data é obrigatória';
       }
-      if (formData.stockQuantity === undefined) {
-        return 'Stock quantity is required when stock control is enabled';
+      if (formData.stockQuantity === undefined || formData.stockQuantity === null) {
+        fieldErrors.stockQuantity = 'Quantidade é obrigatória';
       }
-      if (formData.price === undefined) {
-        return 'Price is required when stock control is enabled';
+      if (formData.price === undefined || formData.price === null) {
+        fieldErrors.price = 'Preço é obrigatório';
+      }
+      if (!formData.unit?.trim()) {
+        fieldErrors.unit = 'Unidade de medida é obrigatória';
       }
     }
-    return null;
+
+    const formError = Object.keys(fieldErrors).length > 0 ? 'Corrija os campos indicados.' : null;
+    return { formError, fieldErrors };
   };
 
   // Handle create
   const handleCreate = async () => {
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
+    const { formError: ve, fieldErrors: fe } = validateForm();
+    if (ve) {
+      setFormError(ve);
+      setFieldErrors(fe);
       return;
     }
 
     try {
-      setError(null);
+      setFormError(null);
+      setFieldErrors({});
       await apiService.createItem({ ...formData, type: activeTab });
       setIsCreateDialogOpen(false);
       resetForm();
       await loadItems();
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to create ${activeTab === ItemType.PRODUCT ? 'product' : 'service'}`);
+      const message = err instanceof Error ? err.message : `Falha ao criar ${activeTab === ItemType.PRODUCT ? 'produto' : 'serviço'}`;
+      setFormError(message);
+      setFieldErrors({});
     }
   };
 
@@ -136,14 +149,16 @@ export const Products = () => {
   const handleEdit = async () => {
     if (!selectedItem) return;
 
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
+    const { formError: ve, fieldErrors: fe } = validateForm();
+    if (ve) {
+      setFormError(ve);
+      setFieldErrors(fe);
       return;
     }
 
     try {
-      setError(null);
+      setFormError(null);
+      setFieldErrors({});
       const updates: UpdateItemRequest = {
         name: formData.name,
         description: formData.description || undefined,
@@ -162,7 +177,9 @@ export const Products = () => {
       resetForm();
       await loadItems();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update item');
+      const message = err instanceof Error ? err.message : 'Falha ao atualizar item';
+      setFormError(message);
+      setFieldErrors({});
     }
   };
 
@@ -205,6 +222,13 @@ export const Products = () => {
       minStockLevel: undefined,
       category: '',
     });
+    setFormError(null);
+    setFieldErrors({});
+  };
+
+  const clearFormErrors = () => {
+    setFormError(null);
+    setFieldErrors({});
   };
 
   // Open edit dialog
@@ -367,7 +391,13 @@ export const Products = () => {
         )}
 
         {/* Create Dialog */}
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog
+          open={isCreateDialogOpen}
+          onOpenChange={(open) => {
+            setIsCreateDialogOpen(open);
+            if (open) clearFormErrors();
+          }}
+        >
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New {entityName}</DialogTitle>
@@ -375,6 +405,12 @@ export const Products = () => {
                 Create a new {entityName.toLowerCase()}
               </DialogDescription>
             </DialogHeader>
+            {formError && (
+              <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <span>{formError}</span>
+              </div>
+            )}
             <div className="grid gap-4 py-4">
               <div className={`grid ${isProduct ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
                 <div className="space-y-2">
@@ -382,8 +418,15 @@ export const Products = () => {
                   <Input
                     id="name"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, name: e.target.value });
+                      if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: '' }));
+                    }}
+                    className={fieldErrors.name ? 'border-destructive' : ''}
                   />
+                  {fieldErrors.name && (
+                    <p className="text-xs text-destructive">{fieldErrors.name}</p>
+                  )}
                 </div>
                 {isProduct && (
                   <div className="space-y-2">
@@ -404,61 +447,52 @@ export const Products = () => {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="category">Categoria</Label>
+                <Input
+                  id="category"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  placeholder="Produto ou serviço"
+                />
+              </div>
               {isProduct ? (
-                <>
-                  {formData.isStockControlled && (
-                    <div className="space-y-2">
-                      <Label htmlFor="price">Preço *</Label>
-                      <Input
-                        id="price"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.price ?? ''}
-                        onChange={(e) => setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : undefined })}
-                      />
-                    </div>
+                <div className="space-y-2">
+                  <Label htmlFor="unit">Unidade de medida</Label>
+                  <Select
+                    value={formData.unit || ''}
+                    onValueChange={(value) => {
+                      setFormData({ ...formData, unit: value });
+                      if (fieldErrors.unit) setFieldErrors((prev) => ({ ...prev, unit: '' }));
+                    }}
+                  >
+                    <SelectTrigger id="unit" className={fieldErrors.unit ? 'border-destructive' : ''}>
+                      <SelectValue placeholder="Selecione a unidade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unitOfMeasures.map((u) => (
+                        <SelectItem key={u.id} value={u.code}>
+                          {u.name} ({u.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fieldErrors.unit && (
+                    <p className="text-xs text-destructive">{fieldErrors.unit}</p>
                   )}
-                  <div className="space-y-2">
-                    <Label htmlFor="unit">Unidade de medida</Label>
-                    <Select
-                      value={formData.unit || ''}
-                      onValueChange={(value) => setFormData({ ...formData, unit: value })}
-                    >
-                      <SelectTrigger id="unit">
-                        <SelectValue placeholder="Selecione a unidade" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {unitOfMeasures.map((u) => (
-                          <SelectItem key={u.id} value={u.code}>
-                            {u.name} ({u.code})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
+                </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="price">Price</Label>
-                    <Input
-                      id="price"
-                      type="number"
-                      step="0.01"
-                      value={formData.price || ''}
-                      onChange={(e) => setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : undefined })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="unit">Unit</Label>
-                    <Input
-                      id="unit"
-                      placeholder="hour, visit, etc."
-                      value={formData.unit}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="unit">Unit</Label>
+                  <Input
+                    id="unit"
+                    placeholder="hora, visita, etc."
+                    value={formData.unit}
+                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Preço só é informado para produto estocável.
+                  </p>
                 </div>
               )}
 
@@ -484,60 +518,78 @@ export const Products = () => {
                   </div>
 
                   {formData.isStockControlled && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
-                      <p className="text-sm text-blue-800">
-                        Stock control is enabled. Please provide initial stock information.
-                      </p>
-                      <div className="space-y-2">
-                        <Label htmlFor="initialStockDate">Initial Stock Date *</Label>
-                        <Input
-                          id="initialStockDate"
-                          type="date"
-                          value={formatDateForInput(formData.initialStockDate)}
-                          onChange={(e) => setFormData({ ...formData, initialStockDate: e.target.value })}
-                        />
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                      <div>
+                        <h4 className="text-sm font-medium text-blue-900">Movimentação inicial</h4>
+                        <p className="text-sm text-blue-800 mt-0.5">
+                          Essa movimentação será salva na tabela de movimento de estoque (Entrada inicial).
+                        </p>
                       </div>
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid gap-4 items-end" style={{ gridTemplateColumns: 'minmax(10rem, 1fr) 1fr 1fr 1fr' }}>
                         <div className="space-y-2">
-                          <Label htmlFor="stockQuantity">Stock Quantity *</Label>
+                          <Label htmlFor="initialStockDate">Data *</Label>
+                          <Input
+                            id="initialStockDate"
+                            type="date"
+                            className={`w-full min-w-[10rem] ${fieldErrors.initialStockDate ? 'border-destructive' : ''}`}
+                            value={formatDateForInput(formData.initialStockDate)}
+                            onChange={(e) => {
+                              setFormData({ ...formData, initialStockDate: e.target.value });
+                              if (fieldErrors.initialStockDate) setFieldErrors((prev) => ({ ...prev, initialStockDate: '' }));
+                            }}
+                          />
+                          {fieldErrors.initialStockDate && (
+                            <p className="text-xs text-destructive">{fieldErrors.initialStockDate}</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="stockQuantity">Quantidade *</Label>
                           <Input
                             id="stockQuantity"
                             type="number"
                             step="0.01"
-                            value={formData.stockQuantity || ''}
-                            onChange={(e) => setFormData({ ...formData, stockQuantity: e.target.value ? parseFloat(e.target.value) : undefined })}
+                            min="0"
+                            value={formData.stockQuantity ?? ''}
+                            className={fieldErrors.stockQuantity ? 'border-destructive' : ''}
+                            onChange={(e) => {
+                              setFormData({ ...formData, stockQuantity: e.target.value ? parseFloat(e.target.value) : undefined });
+                              if (fieldErrors.stockQuantity) setFieldErrors((prev) => ({ ...prev, stockQuantity: '' }));
+                            }}
                           />
+                          {fieldErrors.stockQuantity && (
+                            <p className="text-xs text-destructive">{fieldErrors.stockQuantity}</p>
+                          )}
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="minStockLevel">Min Stock Level</Label>
+                          <Label htmlFor="price">Preço *</Label>
+                          <Input
+                            id="price"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={formData.price ?? ''}
+                            className={fieldErrors.price ? 'border-destructive' : ''}
+                            onChange={(e) => {
+                              setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : undefined });
+                              if (fieldErrors.price) setFieldErrors((prev) => ({ ...prev, price: '' }));
+                            }}
+                          />
+                          {fieldErrors.price && (
+                            <p className="text-xs text-destructive">{fieldErrors.price}</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="minStockLevel">Mín. no estoque</Label>
                           <Input
                             id="minStockLevel"
                             type="number"
                             step="0.01"
-                            value={formData.minStockLevel || ''}
+                            min="0"
+                            value={formData.minStockLevel ?? ''}
                             onChange={(e) => setFormData({ ...formData, minStockLevel: e.target.value ? parseFloat(e.target.value) : undefined })}
                           />
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="category">Category</Label>
-                          <Input
-                            id="category"
-                            value={formData.category}
-                            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                          />
-                        </div>
                       </div>
-                    </div>
-                  )}
-
-                  {!formData.isStockControlled && (
-                    <div className="space-y-2">
-                      <Label htmlFor="category-no-stock">Category</Label>
-                      <Input
-                        id="category-no-stock"
-                        value={formData.category}
-                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      />
                     </div>
                   )}
                 </div>
@@ -555,7 +607,14 @@ export const Products = () => {
         </Dialog>
 
         {/* Edit Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <Dialog
+          open={isEditDialogOpen}
+          onOpenChange={(open) => {
+            setIsEditDialogOpen(open);
+            if (!open) setSelectedItem(null);
+            if (open) clearFormErrors();
+          }}
+        >
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit {entityName}</DialogTitle>
@@ -563,6 +622,12 @@ export const Products = () => {
                 Update {entityName.toLowerCase()} information
               </DialogDescription>
             </DialogHeader>
+            {formError && (
+              <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <span>{formError}</span>
+              </div>
+            )}
             <div className="grid gap-4 py-4">
               <div className={`grid ${isProduct ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
                 <div className="space-y-2">
@@ -570,8 +635,15 @@ export const Products = () => {
                   <Input
                     id="edit-name"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, name: e.target.value });
+                      if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: '' }));
+                    }}
+                    className={fieldErrors.name ? 'border-destructive' : ''}
                   />
+                  {fieldErrors.name && (
+                    <p className="text-xs text-destructive">{fieldErrors.name}</p>
+                  )}
                 </div>
                 {isProduct && (
                   <div className="space-y-2">
@@ -592,61 +664,52 @@ export const Products = () => {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-category">Categoria</Label>
+                <Input
+                  id="edit-category"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  placeholder="Produto ou serviço"
+                />
+              </div>
               {isProduct ? (
-                <>
-                  {formData.isStockControlled && (
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-price">Preço *</Label>
-                      <Input
-                        id="edit-price"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.price ?? ''}
-                        onChange={(e) => setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : undefined })}
-                      />
-                    </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-unit">Unidade de medida</Label>
+                  <Select
+                    value={formData.unit || ''}
+                    onValueChange={(value) => {
+                      setFormData({ ...formData, unit: value });
+                      if (fieldErrors.unit) setFieldErrors((prev) => ({ ...prev, unit: '' }));
+                    }}
+                  >
+                    <SelectTrigger id="edit-unit" className={fieldErrors.unit ? 'border-destructive' : ''}>
+                      <SelectValue placeholder="Selecione a unidade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unitOfMeasures.map((u) => (
+                        <SelectItem key={u.id} value={u.code}>
+                          {u.name} ({u.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fieldErrors.unit && (
+                    <p className="text-xs text-destructive">{fieldErrors.unit}</p>
                   )}
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-unit">Unidade de medida</Label>
-                    <Select
-                      value={formData.unit || ''}
-                      onValueChange={(value) => setFormData({ ...formData, unit: value })}
-                    >
-                      <SelectTrigger id="edit-unit">
-                        <SelectValue placeholder="Selecione a unidade" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {unitOfMeasures.map((u) => (
-                          <SelectItem key={u.id} value={u.code}>
-                            {u.name} ({u.code})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
+                </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-price">Price</Label>
-                    <Input
-                      id="edit-price"
-                      type="number"
-                      step="0.01"
-                      value={formData.price || ''}
-                      onChange={(e) => setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : undefined })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-unit">Unit</Label>
-                    <Input
-                      id="edit-unit"
-                      placeholder="hour, visit, etc."
-                      value={formData.unit}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-unit">Unit</Label>
+                  <Input
+                    id="edit-unit"
+                    placeholder="hora, visita, etc."
+                    value={formData.unit}
+                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Preço só é informado para produto estocável.
+                  </p>
                 </div>
               )}
 
@@ -672,60 +735,78 @@ export const Products = () => {
                   </div>
 
                   {formData.isStockControlled && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
-                      <p className="text-sm text-blue-800">
-                        Stock control is enabled. Please provide initial stock information.
-                      </p>
-                      <div className="space-y-2">
-                        <Label htmlFor="edit-initialStockDate">Initial Stock Date *</Label>
-                        <Input
-                          id="edit-initialStockDate"
-                          type="date"
-                          value={formatDateForInput(formData.initialStockDate)}
-                          onChange={(e) => setFormData({ ...formData, initialStockDate: e.target.value })}
-                        />
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                      <div>
+                        <h4 className="text-sm font-medium text-blue-900">Movimentação inicial</h4>
+                        <p className="text-sm text-blue-800 mt-0.5">
+                          Essa movimentação será salva na tabela de movimento de estoque (Entrada inicial).
+                        </p>
                       </div>
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid gap-4 items-end" style={{ gridTemplateColumns: 'minmax(10rem, 1fr) 1fr 1fr 1fr' }}>
                         <div className="space-y-2">
-                          <Label htmlFor="edit-stockQuantity">Stock Quantity *</Label>
+                          <Label htmlFor="edit-initialStockDate">Data *</Label>
+                          <Input
+                            id="edit-initialStockDate"
+                            type="date"
+                            className={`w-full min-w-[10rem] ${fieldErrors.initialStockDate ? 'border-destructive' : ''}`}
+                            value={formatDateForInput(formData.initialStockDate)}
+                            onChange={(e) => {
+                              setFormData({ ...formData, initialStockDate: e.target.value });
+                              if (fieldErrors.initialStockDate) setFieldErrors((prev) => ({ ...prev, initialStockDate: '' }));
+                            }}
+                          />
+                          {fieldErrors.initialStockDate && (
+                            <p className="text-xs text-destructive">{fieldErrors.initialStockDate}</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-stockQuantity">Quantidade *</Label>
                           <Input
                             id="edit-stockQuantity"
                             type="number"
                             step="0.01"
-                            value={formData.stockQuantity || ''}
-                            onChange={(e) => setFormData({ ...formData, stockQuantity: e.target.value ? parseFloat(e.target.value) : undefined })}
+                            min="0"
+                            value={formData.stockQuantity ?? ''}
+                            className={fieldErrors.stockQuantity ? 'border-destructive' : ''}
+                            onChange={(e) => {
+                              setFormData({ ...formData, stockQuantity: e.target.value ? parseFloat(e.target.value) : undefined });
+                              if (fieldErrors.stockQuantity) setFieldErrors((prev) => ({ ...prev, stockQuantity: '' }));
+                            }}
                           />
+                          {fieldErrors.stockQuantity && (
+                            <p className="text-xs text-destructive">{fieldErrors.stockQuantity}</p>
+                          )}
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="edit-minStockLevel">Min Stock Level</Label>
+                          <Label htmlFor="edit-price">Preço *</Label>
+                          <Input
+                            id="edit-price"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={formData.price ?? ''}
+                            className={fieldErrors.price ? 'border-destructive' : ''}
+                            onChange={(e) => {
+                              setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : undefined });
+                              if (fieldErrors.price) setFieldErrors((prev) => ({ ...prev, price: '' }));
+                            }}
+                          />
+                          {fieldErrors.price && (
+                            <p className="text-xs text-destructive">{fieldErrors.price}</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-minStockLevel">Mín. no estoque</Label>
                           <Input
                             id="edit-minStockLevel"
                             type="number"
                             step="0.01"
-                            value={formData.minStockLevel || ''}
+                            min="0"
+                            value={formData.minStockLevel ?? ''}
                             onChange={(e) => setFormData({ ...formData, minStockLevel: e.target.value ? parseFloat(e.target.value) : undefined })}
                           />
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-category">Category</Label>
-                          <Input
-                            id="edit-category"
-                            value={formData.category}
-                            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                          />
-                        </div>
                       </div>
-                    </div>
-                  )}
-
-                  {!formData.isStockControlled && (
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-category-no-stock">Category</Label>
-                      <Input
-                        id="edit-category-no-stock"
-                        value={formData.category}
-                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      />
                     </div>
                   )}
                 </div>

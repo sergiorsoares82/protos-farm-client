@@ -26,6 +26,7 @@ import {
   Ruler,
   Repeat,
   Briefcase,
+  Sprout,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -38,21 +39,15 @@ interface NavItem {
   roles?: UserRole[] | 'all';
 }
 
-const navItems: NavItem[] = [
-  { name: 'Dashboard', path: '/dashboard', icon: Home, roles: 'all' },
+const peopleMenuItems: NavItem[] = [
   { name: 'Persons', path: '/persons', icon: Users, roles: 'all' },
   { name: 'Funcionários', path: '/funcionarios', icon: Briefcase, roles: 'all' },
   { name: 'Clientes e Fornecedores', path: '/clients-suppliers', icon: Building2, roles: 'all' },
+  { name: 'Usuários', path: '/users', icon: UserCog, roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN] },
+];
+
+const productsMenuItems: NavItem[] = [
   { name: 'Products', path: '/products', icon: Package, roles: 'all' },
-  { name: 'Cost Centers', path: '/cost-centers', icon: Wallet, roles: 'all' },
-  { name: 'Management Accounts', path: '/management-accounts', icon: PiggyBank, roles: 'all' },
-  { name: 'Locais de Trabalho', path: '/fields', icon: MapPin, roles: 'all' },
-  {
-    name: 'Tipos de local de trabalho',
-    path: '/work-location-types',
-    icon: Tags,
-    roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
-  },
   {
     name: 'Unidades de medida',
     path: '/unit-of-measures',
@@ -65,7 +60,23 @@ const navItems: NavItem[] = [
     icon: Repeat,
     roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
   },
+];
+
+const agricultureMenuItems: NavItem[] = [
+  { name: 'Locais de Trabalho', path: '/fields', icon: MapPin, roles: 'all' },
+  {
+    name: 'Tipos de local de trabalho',
+    path: '/work-location-types',
+    icon: Tags,
+    roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
+  },
   { name: 'Seasons (Safras)', path: '/seasons', icon: CalendarRange, roles: 'all' },
+];
+
+const navItems: NavItem[] = [
+  { name: 'Dashboard', path: '/dashboard', icon: Home, roles: 'all' },
+  { name: 'Cost Centers', path: '/cost-centers', icon: Wallet, roles: 'all' },
+  { name: 'Management Accounts', path: '/management-accounts', icon: PiggyBank, roles: 'all' },
   { name: 'Movimentos de Estoque', path: '/stock-movements', icon: ArrowLeftRight, roles: 'all' },
   { name: 'Despesas', path: '/invoices', icon: FileText, roles: 'all' },
   { name: 'Receitas', path: '/revenues', icon: FileText, roles: 'all' },
@@ -78,7 +89,6 @@ const navItems: NavItem[] = [
     icon: Tags,
     roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
   },
-  { name: 'User Management', path: '/users', icon: UserCog, roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN] },
   { name: 'Organization', path: '/organization', icon: Building2, roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN] },
   { name: 'Super Admin', path: '/super-admin', icon: Shield, roles: [UserRole.SUPER_ADMIN] },
   { name: 'Settings', path: '/settings', icon: Settings, roles: 'all' },
@@ -89,7 +99,10 @@ export const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSuperAdminOpen, setIsSuperAdminOpen] = useState(true);
+  const [isSuperAdminOpen, setIsSuperAdminOpen] = useState(false);
+  const [isPeopleMenuOpen, setIsPeopleMenuOpen] = useState(false);
+  const [isProductsMenuOpen, setIsProductsMenuOpen] = useState(false);
+  const [isAgricultureMenuOpen, setIsAgricultureMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -105,8 +118,14 @@ export const Sidebar = () => {
   });
 
   // For super admins, we'll render Organization + Super Admin under a collapsible section,
-  // so exclude them from the main flat list. For other roles, keep them as-is.
+  // so exclude them from the main flat list. Exclude people, products and agriculture menu items (rendered in groups).
+  const peoplePaths = peopleMenuItems.map((i) => i.path);
+  const productsPaths = productsMenuItems.map((i) => i.path);
+  const agriculturePaths = agricultureMenuItems.map((i) => i.path);
   const mainNavItems = visibleNavItems.filter((item) => {
+    if (peoplePaths.includes(item.path)) return false;
+    if (productsPaths.includes(item.path)) return false;
+    if (agriculturePaths.includes(item.path)) return false;
     if (
       user?.role === UserRole.SUPER_ADMIN &&
       (item.path === '/organization' || item.path === '/super-admin')
@@ -115,6 +134,30 @@ export const Sidebar = () => {
     }
     return true;
   });
+
+  const visiblePeopleItems = peopleMenuItems.filter((item) => {
+    if (item.roles === 'all') return true;
+    if (!item.roles) return true;
+    if (!user?.role) return false;
+    return item.roles.includes(user.role);
+  });
+  const isPeopleSectionActive = peoplePaths.some((path) => location.pathname === path);
+
+  const visibleProductsItems = productsMenuItems.filter((item) => {
+    if (item.roles === 'all') return true;
+    if (!item.roles) return true;
+    if (!user?.role) return false;
+    return item.roles.includes(user.role);
+  });
+  const isProductsSectionActive = productsPaths.some((path) => location.pathname === path);
+
+  const visibleAgricultureItems = agricultureMenuItems.filter((item) => {
+    if (item.roles === 'all') return true;
+    if (!item.roles) return true;
+    if (!user?.role) return false;
+    return item.roles.includes(user.role);
+  });
+  const isAgricultureSectionActive = agriculturePaths.some((path) => location.pathname === path);
 
   const isSuperAdminSectionActive = location.pathname === '/super-admin';
 
@@ -175,20 +218,168 @@ export const Sidebar = () => {
               const isActive = location.pathname === item.path;
 
               return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                <div key={item.path}>
+                  <Link
+                    to={item.path}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                    {item.name}
+                  </Link>
+                  {/* Menu Pessoas: Persons, Funcionários, Clientes e Fornecedores */}
+                  {item.path === '/dashboard' && visiblePeopleItems.length > 0 && (
+                    <div className="mt-1 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsPeopleMenuOpen((open) => !open)}
+                        className={cn(
+                          'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                          isPeopleSectionActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        )}
+                      >
+                        <span className="flex items-center gap-3">
+                          <Users className="h-5 w-5" />
+                          <span>Pessoas</span>
+                        </span>
+                        {isPeopleMenuOpen ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                      {isPeopleMenuOpen && (
+                        <div className="mt-1 space-y-1 pl-8">
+                          {visiblePeopleItems.map((subItem) => {
+                            const SubIcon = subItem.icon;
+                            const isSubActive = location.pathname === subItem.path;
+                            return (
+                              <Link
+                                key={subItem.path}
+                                to={subItem.path}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={cn(
+                                  'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors',
+                                  isSubActive
+                                    ? 'bg-primary/90 text-primary-foreground'
+                                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                )}
+                              >
+                                <SubIcon className="h-4 w-4" />
+                                {subItem.name}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   )}
-                >
-                  <Icon className="h-5 w-5" />
-                  {item.name}
-                </Link>
+                  {/* Menu Produtos: Products, Unidades de medida, Conversões de medida */}
+                  {item.path === '/dashboard' && visibleProductsItems.length > 0 && (
+                    <div className="mt-1 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsProductsMenuOpen((open) => !open)}
+                        className={cn(
+                          'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                          isProductsSectionActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        )}
+                      >
+                        <span className="flex items-center gap-3">
+                          <Package className="h-5 w-5" />
+                          <span>Produtos</span>
+                        </span>
+                        {isProductsMenuOpen ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                      {isProductsMenuOpen && (
+                        <div className="mt-1 space-y-1 pl-8">
+                          {visibleProductsItems.map((subItem) => {
+                            const SubIcon = subItem.icon;
+                            const isSubActive = location.pathname === subItem.path;
+                            return (
+                              <Link
+                                key={subItem.path}
+                                to={subItem.path}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={cn(
+                                  'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors',
+                                  isSubActive
+                                    ? 'bg-primary/90 text-primary-foreground'
+                                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                )}
+                              >
+                                <SubIcon className="h-4 w-4" />
+                                {subItem.name}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Menu Agricultura: Locais de trabalho, Tipos de local de trabalho, Safras */}
+                  {item.path === '/dashboard' && visibleAgricultureItems.length > 0 && (
+                    <div className="mt-1 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsAgricultureMenuOpen((open) => !open)}
+                        className={cn(
+                          'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                          isAgricultureSectionActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        )}
+                      >
+                        <span className="flex items-center gap-3">
+                          <Sprout className="h-5 w-5" />
+                          <span>Agricultura</span>
+                        </span>
+                        {isAgricultureMenuOpen ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                      {isAgricultureMenuOpen && (
+                        <div className="mt-1 space-y-1 pl-8">
+                          {visibleAgricultureItems.map((subItem) => {
+                            const SubIcon = subItem.icon;
+                            const isSubActive = location.pathname === subItem.path;
+                            return (
+                              <Link
+                                key={subItem.path}
+                                to={subItem.path}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={cn(
+                                  'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors',
+                                  isSubActive
+                                    ? 'bg-primary/90 text-primary-foreground'
+                                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                )}
+                              >
+                                <SubIcon className="h-4 w-4" />
+                                {subItem.name}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               );
             })}
 
