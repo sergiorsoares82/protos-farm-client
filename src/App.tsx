@@ -2,6 +2,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { Dashboard } from '@/pages/Dashboard';
 import { LoginPage } from '@/pages/LoginPage';
 import { Persons } from '@/pages/Persons';
+import { ClientsSuppliers } from '@/pages/ClientsSuppliers';
 import { Products } from '@/pages/Products';
 import { Settings } from '@/pages/Settings';
 import { SuperAdmin } from '@/pages/SuperAdmin';
@@ -18,9 +19,11 @@ import { UnitOfMeasureConversions } from '@/pages/UnitOfMeasureConversions';
 import { Seasons } from '@/pages/Seasons';
 import { StockMovements } from '@/pages/StockMovements';
 import { Invoices } from '@/pages/Invoices';
+import { Revenues } from '@/pages/Revenues';
 import { MachineTypes } from '@/pages/MachineTypes';
 import { Machines } from '@/pages/Machines';
 import { Assets } from '@/pages/Assets';
+import { Funcionarios } from '@/pages/Funcionarios';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
@@ -46,6 +49,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <Persons />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/funcionarios"
+            element={
+              <ProtectedRoute>
+                <Funcionarios />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/clients-suppliers"
+            element={
+              <ProtectedRoute>
+                <ClientsSuppliers />
               </ProtectedRoute>
             }
           />
@@ -134,6 +153,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Invoices />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/revenues"
+            element={
+              <ProtectedRoute>
+                <Revenues />
               </ProtectedRoute>
             }
           />

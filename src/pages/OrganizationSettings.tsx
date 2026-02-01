@@ -4,23 +4,44 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { apiService, Organization, UpdateOrganizationRequest } from '@/services/api';
-import { Building2, Save, CheckCircle, XCircle, Users } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { apiService, Organization, UpdateOrganizationRequest, DocumentType, CreateDocumentTypeRequest } from '@/services/api';
+import { Building2, Save, CheckCircle, XCircle, Users, FileText, Plus, Edit, Trash2 } from 'lucide-react';
 import { useAuthorization } from '@/hooks/useAuthorization';
 
 export const OrganizationSettings = () => {
-  const { canManageOwnOrganization } = useAuthorization();
+  const { canManageOwnOrganization, hasAdminAccess } = useAuthorization();
   const [organization, setOrganization] = useState<Organization | null>(null);
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   
   const [formData, setFormData] = useState<UpdateOrganizationRequest>({});
+  
+  // Document type modals
+  const [showCreateDocTypeModal, setShowCreateDocTypeModal] = useState(false);
+  const [newDocType, setNewDocType] = useState<CreateDocumentTypeRequest>({
+    name: '',
+    group: '',
+    hasAccessKey: false,
+  });
+  const [showEditDocTypeModal, setShowEditDocTypeModal] = useState(false);
+  const [editingDocType, setEditingDocType] = useState<DocumentType | null>(null);
+  const [editDocTypeForm, setEditDocTypeForm] = useState<CreateDocumentTypeRequest>({
+    name: '',
+    group: '',
+    hasAccessKey: false,
+  });
+  const [docTypeSearch, setDocTypeSearch] = useState('');
 
   useEffect(() => {
     loadOrganization();
-  }, []);
+    if (hasAdminAccess) {
+      loadDocumentTypes();
+    }
+  }, [hasAdminAccess]);
 
   const loadOrganization = async () => {
     try {
@@ -66,6 +87,74 @@ export const OrganizationSettings = () => {
     setIsEditing(false);
     setError(null);
   };
+
+  const loadDocumentTypes = async () => {
+    try {
+      setError(null);
+      const data = await apiService.getDocumentTypes();
+      // Filtrar apenas tipos da organização (não tipos do sistema)
+      setDocumentTypes(data.filter((dt) => !dt.isSystem));
+    } catch (err: any) {
+      setError(err.message || 'Failed to load document types');
+    }
+  };
+
+  const handleCreateDocumentType = async () => {
+    try {
+      await apiService.createDocumentType(newDocType);
+      setShowCreateDocTypeModal(false);
+      setNewDocType({
+        name: '',
+        group: '',
+        hasAccessKey: false,
+      });
+      await loadDocumentTypes();
+      setSuccess('Document type created successfully');
+    } catch (err: any) {
+      setError(err.message || 'Failed to create document type');
+    }
+  };
+
+  const openEditDocTypeModal = (docType: DocumentType) => {
+    setEditingDocType(docType);
+    setEditDocTypeForm({
+      name: docType.name,
+      group: docType.group,
+      hasAccessKey: docType.hasAccessKey,
+    });
+    setShowEditDocTypeModal(true);
+  };
+
+  const handleUpdateDocumentType = async () => {
+    if (!editingDocType) return;
+    try {
+      await apiService.updateDocumentType(editingDocType.id, editDocTypeForm);
+      setShowEditDocTypeModal(false);
+      setEditingDocType(null);
+      await loadDocumentTypes();
+      setSuccess('Document type updated successfully');
+    } catch (err: any) {
+      setError(err.message || 'Failed to update document type');
+    }
+  };
+
+  const handleDeleteDocumentType = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este tipo de documento?')) {
+      return;
+    }
+    try {
+      await apiService.deleteDocumentType(id);
+      await loadDocumentTypes();
+      setSuccess('Document type deleted successfully');
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete document type');
+    }
+  };
+
+  const filteredDocumentTypes = documentTypes.filter((dt) =>
+    dt.name.toLowerCase().includes(docTypeSearch.toLowerCase()) ||
+    dt.group.toLowerCase().includes(docTypeSearch.toLowerCase())
+  );
 
   return (
     <Layout>
@@ -231,9 +320,208 @@ export const OrganizationSettings = () => {
                   </div>
                 </CardContent>
             </Card>
+
+              {/* Document Types - Only for admins */}
+              {hasAdminAccess && (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-6 w-6 text-gray-600" />
+                        <div>
+                          <CardTitle>Tipos de Documento da Organização</CardTitle>
+                          <CardDescription>
+                            Gerencie os tipos de documento específicos da sua organização
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <Button onClick={() => setShowCreateDocTypeModal(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Adicionar Tipo
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="mb-4">
+                      <Input
+                        placeholder="Buscar tipos de documento..."
+                        value={docTypeSearch}
+                        onChange={(e) => setDocTypeSearch(e.target.value)}
+                      />
+                    </div>
+
+                    {filteredDocumentTypes.length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        Nenhum tipo de documento da organização. Os tipos do sistema estão disponíveis para uso.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {filteredDocumentTypes.map((dt) => (
+                          <div
+                            key={dt.id}
+                            className="flex items-center justify-between border rounded-lg px-4 py-2"
+                          >
+                            <div>
+                              <p className="font-medium">{dt.name}</p>
+                              <p className="text-xs text-gray-500">
+                                Grupo: {dt.group || 'N/A'} ·
+                                {dt.hasAccessKey ? ' Requer chave de acesso' : ' Não requer chave de acesso'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openEditDocTypeModal(dt)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteDocumentType(dt.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
           </>
         )}
       </div>
+
+      {/* Create Document Type Modal */}
+      {hasAdminAccess && (
+        <Dialog open={showCreateDocTypeModal} onOpenChange={setShowCreateDocTypeModal}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Criar Tipo de Documento</DialogTitle>
+              <DialogDescription>
+                Defina um tipo de documento específico da sua organização
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="doc-type-name">Nome</Label>
+                <Input
+                  id="doc-type-name"
+                  value={newDocType.name}
+                  onChange={(e) => setNewDocType({ ...newDocType, name: e.target.value })}
+                  placeholder="ex: Nota Fiscal Eletrônica"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="doc-type-group">Grupo</Label>
+                <Input
+                  id="doc-type-group"
+                  value={newDocType.group}
+                  onChange={(e) =>
+                    setNewDocType({
+                      ...newDocType,
+                      group: e.target.value,
+                    })
+                  }
+                  placeholder="ex: FISCAL, COMERCIAL, FINANCEIRO"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="doc-type-access-key"
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={newDocType.hasAccessKey}
+                  onChange={(e) =>
+                    setNewDocType({ ...newDocType, hasAccessKey: e.target.checked })
+                  }
+                />
+                <Label htmlFor="doc-type-access-key" className="text-sm">
+                  Requer chave de acesso (documentos como NF-e)
+                </Label>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCreateDocTypeModal(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleCreateDocumentType} disabled={!newDocType.name.trim()}>
+                Criar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Document Type Modal */}
+      {hasAdminAccess && (
+        <Dialog open={showEditDocTypeModal} onOpenChange={setShowEditDocTypeModal}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Editar Tipo de Documento</DialogTitle>
+              <DialogDescription>Atualize os detalhes do tipo de documento</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-doc-type-name">Nome</Label>
+                <Input
+                  id="edit-doc-type-name"
+                  value={editDocTypeForm.name}
+                  onChange={(e) =>
+                    setEditDocTypeForm({ ...editDocTypeForm, name: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-doc-type-group">Grupo</Label>
+                <Input
+                  id="edit-doc-type-group"
+                  value={editDocTypeForm.group}
+                  onChange={(e) =>
+                    setEditDocTypeForm({
+                      ...editDocTypeForm,
+                      group: e.target.value,
+                    })
+                  }
+                  placeholder="ex: FISCAL, COMERCIAL, FINANCEIRO"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="edit-doc-type-access-key"
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={editDocTypeForm.hasAccessKey}
+                  onChange={(e) =>
+                    setEditDocTypeForm({
+                      ...editDocTypeForm,
+                      hasAccessKey: e.target.checked,
+                    })
+                  }
+                />
+                <Label htmlFor="edit-doc-type-access-key" className="text-sm">
+                  Requer chave de acesso (documentos como NF-e)
+                </Label>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowEditDocTypeModal(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleUpdateDocumentType} disabled={!editDocTypeForm.name.trim()}>
+                Salvar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Layout>
   );
 };

@@ -25,6 +25,7 @@ import {
   Box,
   Ruler,
   Repeat,
+  Briefcase,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { name: 'Dashboard', path: '/dashboard', icon: Home, roles: 'all' },
   { name: 'Persons', path: '/persons', icon: Users, roles: 'all' },
+  { name: 'Funcionários', path: '/funcionarios', icon: Briefcase, roles: 'all' },
+  { name: 'Clientes e Fornecedores', path: '/clients-suppliers', icon: Building2, roles: 'all' },
   { name: 'Products', path: '/products', icon: Package, roles: 'all' },
   { name: 'Cost Centers', path: '/cost-centers', icon: Wallet, roles: 'all' },
   { name: 'Management Accounts', path: '/management-accounts', icon: PiggyBank, roles: 'all' },
@@ -64,7 +67,8 @@ const navItems: NavItem[] = [
   },
   { name: 'Seasons (Safras)', path: '/seasons', icon: CalendarRange, roles: 'all' },
   { name: 'Movimentos de Estoque', path: '/stock-movements', icon: ArrowLeftRight, roles: 'all' },
-  { name: 'Notas Fiscais', path: '/invoices', icon: FileText, roles: 'all' },
+  { name: 'Despesas', path: '/invoices', icon: FileText, roles: 'all' },
+  { name: 'Receitas', path: '/revenues', icon: FileText, roles: 'all' },
   { name: 'Machine Types', path: '/machine-types', icon: Truck, roles: 'all' },
   { name: 'Machines (Máquinas)', path: '/machines', icon: Truck, roles: 'all' },
   { name: 'Patrimônio (Ativos)', path: '/assets', icon: Box, roles: 'all' },

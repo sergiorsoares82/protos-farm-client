@@ -25,7 +25,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Package, Plus, Pencil, Trash2, AlertCircle, Wrench } from 'lucide-react';
-import { apiService, Item, ItemType, CreateItemRequest, UpdateItemRequest } from '@/services/api';
+import { apiService, Item, ItemType, CreateItemRequest, UpdateItemRequest, UnitOfMeasure } from '@/services/api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export const Products = () => {
   const [activeTab, setActiveTab] = useState<ItemType>(ItemType.PRODUCT);
@@ -35,6 +42,7 @@ export const Products = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [unitOfMeasures, setUnitOfMeasures] = useState<UnitOfMeasure[]>([]);
 
   // Form state
   const [formData, setFormData] = useState<CreateItemRequest>({
@@ -68,6 +76,16 @@ export const Products = () => {
   useEffect(() => {
     loadItems();
   }, [activeTab]);
+
+  // Load unit of measures for product form
+  useEffect(() => {
+    if (isCreateDialogOpen || isEditDialogOpen) {
+      apiService
+        .getUnitOfMeasures()
+        .then(setUnitOfMeasures)
+        .catch(() => setUnitOfMeasures([]));
+    }
+  }, [isCreateDialogOpen, isEditDialogOpen]);
 
   // Handle tab change
   const handleTabChange = (value: string) => {
@@ -386,27 +404,63 @@ export const Products = () => {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Price {(isProduct && formData.isStockControlled) && '*'}</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    value={formData.price || ''}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : undefined })}
-                  />
+              {isProduct ? (
+                <>
+                  {formData.isStockControlled && (
+                    <div className="space-y-2">
+                      <Label htmlFor="price">Preço *</Label>
+                      <Input
+                        id="price"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.price ?? ''}
+                        onChange={(e) => setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : undefined })}
+                      />
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="unit">Unidade de medida</Label>
+                    <Select
+                      value={formData.unit || ''}
+                      onValueChange={(value) => setFormData({ ...formData, unit: value })}
+                    >
+                      <SelectTrigger id="unit">
+                        <SelectValue placeholder="Selecione a unidade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {unitOfMeasures.map((u) => (
+                          <SelectItem key={u.id} value={u.code}>
+                            {u.name} ({u.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="price">Price</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      step="0.01"
+                      value={formData.price || ''}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : undefined })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="unit">Unit</Label>
+                    <Input
+                      id="unit"
+                      placeholder="hour, visit, etc."
+                      value={formData.unit}
+                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="unit">Unit</Label>
-                  <Input
-                    id="unit"
-                    placeholder="hour, visit, kg, etc."
-                    value={formData.unit}
-                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  />
-                </div>
-              </div>
+              )}
 
               {/* Stock Control Section - Only for Products */}
               {isProduct && (
@@ -415,12 +469,17 @@ export const Products = () => {
                     <Checkbox
                       id="isStockControlled"
                       checked={formData.isStockControlled}
-                      onCheckedChange={(checked) =>
-                        setFormData({ ...formData, isStockControlled: checked as boolean })
-                      }
+                      onCheckedChange={(checked) => {
+                        const isStockControlled = checked as boolean;
+                        setFormData({
+                          ...formData,
+                          isStockControlled,
+                          ...(isStockControlled ? {} : { price: undefined }),
+                        });
+                      }}
                     />
                     <Label htmlFor="isStockControlled" className="cursor-pointer">
-                      Enable stock control for this product
+                      Produto estocável (controle de estoque)
                     </Label>
                   </div>
 
@@ -533,27 +592,63 @@ export const Products = () => {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-price">Price {(isProduct && formData.isStockControlled) && '*'}</Label>
-                  <Input
-                    id="edit-price"
-                    type="number"
-                    step="0.01"
-                    value={formData.price || ''}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : undefined })}
-                  />
+              {isProduct ? (
+                <>
+                  {formData.isStockControlled && (
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-price">Preço *</Label>
+                      <Input
+                        id="edit-price"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.price ?? ''}
+                        onChange={(e) => setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : undefined })}
+                      />
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-unit">Unidade de medida</Label>
+                    <Select
+                      value={formData.unit || ''}
+                      onValueChange={(value) => setFormData({ ...formData, unit: value })}
+                    >
+                      <SelectTrigger id="edit-unit">
+                        <SelectValue placeholder="Selecione a unidade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {unitOfMeasures.map((u) => (
+                          <SelectItem key={u.id} value={u.code}>
+                            {u.name} ({u.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-price">Price</Label>
+                    <Input
+                      id="edit-price"
+                      type="number"
+                      step="0.01"
+                      value={formData.price || ''}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : undefined })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-unit">Unit</Label>
+                    <Input
+                      id="edit-unit"
+                      placeholder="hour, visit, etc."
+                      value={formData.unit}
+                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-unit">Unit</Label>
-                  <Input
-                    id="edit-unit"
-                    placeholder="hour, visit, kg, etc."
-                    value={formData.unit}
-                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  />
-                </div>
-              </div>
+              )}
 
               {/* Stock Control Section - Only for Products */}
               {isProduct && (
@@ -562,12 +657,17 @@ export const Products = () => {
                     <Checkbox
                       id="edit-isStockControlled"
                       checked={formData.isStockControlled}
-                      onCheckedChange={(checked) =>
-                        setFormData({ ...formData, isStockControlled: checked as boolean })
-                      }
+                      onCheckedChange={(checked) => {
+                        const isStockControlled = checked as boolean;
+                        setFormData({
+                          ...formData,
+                          isStockControlled,
+                          ...(isStockControlled ? {} : { price: undefined }),
+                        });
+                      }}
                     />
                     <Label htmlFor="edit-isStockControlled" className="cursor-pointer">
-                      Enable stock control for this product
+                      Produto estocável (controle de estoque)
                     </Label>
                   </div>
 

@@ -229,7 +229,7 @@ export const Users = () => {
                               {user.person && (
                                 <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 flex items-center gap-1">
                                   <UserIcon className="h-3 w-3" />
-                                  {user.person.fullName}
+                                  {user.person.nome}
                                 </span>
                               )}
                             </div>

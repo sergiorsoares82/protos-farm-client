@@ -48,6 +48,7 @@ import {
   apiService,
   Person,
   PersonRole,
+  PersonType,
   CreatePersonRequest,
   UpdatePersonRequest,
 } from '@/services/api';
@@ -79,8 +80,9 @@ export const Persons = () => {
 
   // Form state
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    nome: '',
+    personType: PersonType.FISICA as PersonType,
+    cpfCnpj: '',
     email: '',
     phone: '',
   });
@@ -126,11 +128,8 @@ export const Persons = () => {
       const errors: Record<string, string> = {};
       
       // Validate basic information first
-      if (!formData.firstName.trim()) {
-        errors.firstName = 'First Name is required';
-      }
-      if (!formData.lastName.trim()) {
-        errors.lastName = 'Last Name is required';
+      if (!formData.nome.trim()) {
+        errors.nome = 'Nome é obrigatório';
       }
       if (!formData.email.trim()) {
         errors.email = 'Email is required';
@@ -148,14 +147,7 @@ export const Persons = () => {
       let roleData: any = { ...createRoleData };
       
       // Ensure required fields are present based on role type
-      if (createRoleType === PersonRole.SUPPLIER) {
-        if (!roleData.companyName) {
-          errors.companyName = 'Company Name is required for Supplier';
-        }
-        if (!roleData.taxId) {
-          errors.taxId = 'Tax ID is required for Supplier';
-        }
-      } else if (createRoleType === PersonRole.WORKER) {
+      if (createRoleType === PersonRole.WORKER) {
         console.log('Validating Worker fields:', {
           position: roleData.position,
           hireDate: roleData.hireDate,
@@ -185,7 +177,11 @@ export const Persons = () => {
       }
       
       const newPerson: CreatePersonRequest = {
-        ...formData,
+        nome: formData.nome,
+        personType: formData.personType,
+        cpfCnpj: formData.cpfCnpj || undefined,
+        email: formData.email,
+        phone: formData.phone || undefined,
         roles: [
           {
             type: createRoleType,
@@ -212,8 +208,8 @@ export const Persons = () => {
     try {
       setError(null);
       const updates: UpdatePersonRequest = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
+        nome: formData.nome,
+        personType: formData.personType,
         email: formData.email,
         phone: formData.phone || undefined,
       };
@@ -289,11 +285,11 @@ export const Persons = () => {
   };
 
   const exportToCSV = () => {
-    const headers = ['ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Roles', 'Created At'];
+    const headers = ['ID', 'Nome', 'Tipo', 'Email', 'Phone', 'Roles', 'Created At'];
     const csvData = filteredAndSortedPersons.map((person) => [
       person.id,
-      person.firstName,
-      person.lastName,
+      person.nome,
+      person.personType,
       person.email,
       person.phone || '',
       Object.keys(person.roles).join('; '),
@@ -316,8 +312,9 @@ export const Persons = () => {
 
   const resetForm = () => {
     setFormData({
-      firstName: '',
-      lastName: '',
+      nome: '',
+      personType: PersonType.FISICA,
+      cpfCnpj: '',
       email: '',
       phone: '',
     });
@@ -330,8 +327,9 @@ export const Persons = () => {
   const startEdit = (person: Person) => {
     setSelectedPerson(person);
     setFormData({
-      firstName: person.firstName,
-      lastName: person.lastName,
+      nome: person.nome,
+      personType: person.personType,
+      cpfCnpj: person.cpfCnpj || '',
       email: person.email,
       phone: person.phone || '',
     });
@@ -372,7 +370,7 @@ export const Persons = () => {
   const filteredAndSortedPersons = useMemo(() => {
     let filtered = persons.filter((person) => {
       const matchesSearch =
-        person.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        person.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
         person.email.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesRole =
@@ -416,43 +414,13 @@ export const Persons = () => {
         return (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="companyName">Company Name</Label>
+              <Label htmlFor="clientCategories">Categorias do cliente</Label>
               <Input
-                id="companyName"
-                value={roleFormData.companyName || ''}
+                id="clientCategories"
+                placeholder="Ex: Agricultura, Comércio"
+                value={roleFormData.clientCategories || ''}
                 onChange={(e) =>
-                  setRoleFormData({ ...roleFormData, companyName: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="taxId">Tax ID</Label>
-              <Input
-                id="taxId"
-                value={roleFormData.taxId || ''}
-                onChange={(e) =>
-                  setRoleFormData({ ...roleFormData, taxId: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="preferredPaymentMethod">Preferred Payment Method</Label>
-              <Input
-                id="preferredPaymentMethod"
-                value={roleFormData.preferredPaymentMethod || ''}
-                onChange={(e) =>
-                  setRoleFormData({ ...roleFormData, preferredPaymentMethod: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="creditLimit">Credit Limit</Label>
-              <Input
-                id="creditLimit"
-                type="number"
-                value={roleFormData.creditLimit || ''}
-                onChange={(e) =>
-                  setRoleFormData({ ...roleFormData, creditLimit: parseFloat(e.target.value) })
+                  setRoleFormData({ ...roleFormData, clientCategories: e.target.value })
                 }
               />
             </div>
@@ -463,44 +431,13 @@ export const Persons = () => {
         return (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="companyName">Company Name *</Label>
-              <Input
-                id="companyName"
-                required
-                value={roleFormData.companyName || ''}
-                onChange={(e) =>
-                  setRoleFormData({ ...roleFormData, companyName: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="taxId">Tax ID *</Label>
-              <Input
-                id="taxId"
-                required
-                value={roleFormData.taxId || ''}
-                onChange={(e) =>
-                  setRoleFormData({ ...roleFormData, taxId: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="supplyCategories">Supply Categories</Label>
+              <Label htmlFor="supplyCategories">Categorias de fornecimento</Label>
               <Input
                 id="supplyCategories"
+                placeholder="Ex: Insumos, Máquinas"
                 value={roleFormData.supplyCategories || ''}
                 onChange={(e) =>
                   setRoleFormData({ ...roleFormData, supplyCategories: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="paymentTerms">Payment Terms</Label>
-              <Input
-                id="paymentTerms"
-                value={roleFormData.paymentTerms || ''}
-                onChange={(e) =>
-                  setRoleFormData({ ...roleFormData, paymentTerms: e.target.value })
                 }
               />
             </div>
@@ -744,29 +681,40 @@ export const Persons = () => {
             <CardContent className="space-y-6">
               {/* Basic Information */}
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name *</Label>
-                    <Input
-                      id="firstName"
-                      value={formData.firstName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, firstName: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name *</Label>
-                    <Input
-                      id="lastName"
-                      value={formData.lastName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, lastName: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-nome">Nome *</Label>
+                  <Input
+                    id="edit-nome"
+                    value={formData.nome}
+                    onChange={(e) =>
+                      setFormData({ ...formData, nome: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo de pessoa</Label>
+                  <Select
+                    value={formData.personType}
+                    onValueChange={(v) => setFormData({ ...formData, personType: v as PersonType })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={PersonType.FISICA}>Pessoa física</SelectItem>
+                      <SelectItem value={PersonType.JURIDICA}>Pessoa jurídica</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-cpfCnpj">CPF/CNPJ</Label>
+                  <Input
+                    id="edit-cpfCnpj"
+                    value={formData.cpfCnpj}
+                    onChange={(e) => setFormData({ ...formData, cpfCnpj: e.target.value })}
+                    placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email *</Label>
@@ -851,7 +799,7 @@ export const Persons = () => {
                       />
                       <div className="flex-1 space-y-3">
                         <div>
-                          <h3 className="text-lg font-semibold">{person.fullName}</h3>
+                          <h3 className="text-lg font-semibold">{person.nome}</h3>
                           <div className="flex flex-wrap gap-2 mt-2">
                             {getRoleBadges(person.roles)}
                           </div>
@@ -1008,7 +956,7 @@ export const Persons = () => {
       <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedPerson?.fullName}</DialogTitle>
+            <DialogTitle>{selectedPerson?.nome}</DialogTitle>
             <DialogDescription>Detailed person information</DialogDescription>
           </DialogHeader>
           {selectedPerson && (
@@ -1020,12 +968,16 @@ export const Persons = () => {
               <TabsContent value="basic" className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">First Name</p>
-                    <p className="text-sm">{selectedPerson.firstName}</p>
+                    <p className="text-sm font-medium text-muted-foreground">Nome</p>
+                    <p className="text-sm">{selectedPerson.nome}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Last Name</p>
-                    <p className="text-sm">{selectedPerson.lastName}</p>
+                    <p className="text-sm font-medium text-muted-foreground">Tipo de pessoa</p>
+                    <p className="text-sm">{selectedPerson.personType === 'FISICA' ? 'Pessoa física' : 'Pessoa jurídica'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">CPF/CNPJ</p>
+                    <p className="text-sm">{selectedPerson.cpfCnpj || '—'}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Email</p>
@@ -1113,54 +1065,54 @@ export const Persons = () => {
               {/* Basic Information */}
               <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <h3 className="text-sm font-semibold text-blue-900">📋 Basic Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="modal-firstName" className="text-sm font-medium">
-                      First Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="modal-firstName"
-                      placeholder="Enter first name"
-                      value={formData.firstName}
-                      onChange={(e) => {
-                        setFormData({ ...formData, firstName: e.target.value });
-                        if (fieldErrors.firstName) {
-                          setFieldErrors({ ...fieldErrors, firstName: '' });
-                        }
-                      }}
-                      required
-                      autoFocus
-                      className={fieldErrors.firstName ? 'border-red-500 focus-visible:ring-red-500' : 'border-blue-300'}
-                    />
-                    {fieldErrors.firstName && (
-                      <p className="text-sm text-red-600 flex items-center gap-1">
-                        <span>⚠️</span> {fieldErrors.firstName}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="modal-lastName" className="text-sm font-medium">
-                      Last Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="modal-lastName"
-                      placeholder="Enter last name"
-                      value={formData.lastName}
-                      onChange={(e) => {
-                        setFormData({ ...formData, lastName: e.target.value });
-                        if (fieldErrors.lastName) {
-                          setFieldErrors({ ...fieldErrors, lastName: '' });
-                        }
-                      }}
-                      required
-                      className={fieldErrors.lastName ? 'border-red-500 focus-visible:ring-red-500' : 'border-blue-300'}
-                    />
-                    {fieldErrors.lastName && (
-                      <p className="text-sm text-red-600 flex items-center gap-1">
-                        <span>⚠️</span> {fieldErrors.lastName}
-                      </p>
-                    )}
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="modal-nome" className="text-sm font-medium">
+                    Nome <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="modal-nome"
+                    placeholder="Nome completo ou razão social"
+                    value={formData.nome}
+                    onChange={(e) => {
+                      setFormData({ ...formData, nome: e.target.value });
+                      if (fieldErrors.nome) {
+                        setFieldErrors({ ...fieldErrors, nome: '' });
+                      }
+                    }}
+                    required
+                    autoFocus
+                    className={fieldErrors.nome ? 'border-red-500 focus-visible:ring-red-500' : 'border-blue-300'}
+                  />
+                  {fieldErrors.nome && (
+                    <p className="text-sm text-red-600 flex items-center gap-1">
+                      <span>⚠️</span> {fieldErrors.nome}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Tipo de pessoa *</Label>
+                  <Select
+                    value={formData.personType}
+                    onValueChange={(v) => setFormData({ ...formData, personType: v as PersonType })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={PersonType.FISICA}>Pessoa física</SelectItem>
+                      <SelectItem value={PersonType.JURIDICA}>Pessoa jurídica</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="modal-cpfCnpj" className="text-sm font-medium">CPF/CNPJ</Label>
+                  <Input
+                    id="modal-cpfCnpj"
+                    placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                    value={formData.cpfCnpj}
+                    onChange={(e) => setFormData({ ...formData, cpfCnpj: e.target.value })}
+                    className="border-blue-300"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="modal-email" className="text-sm font-medium">
@@ -1226,26 +1178,14 @@ export const Persons = () => {
                 </div>
                 {createRoleType === PersonRole.CLIENT && (
                   <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      All fields are optional for Client role
-                    </p>
                     <div className="space-y-2">
-                      <Label htmlFor="modal-companyName">Company Name</Label>
+                      <Label htmlFor="modal-clientCategories">Categorias do cliente</Label>
                       <Input
-                        id="modal-companyName"
-                        value={createRoleData.companyName || ''}
+                        id="modal-clientCategories"
+                        placeholder="Ex: Agricultura, Comércio"
+                        value={createRoleData.clientCategories || ''}
                         onChange={(e) =>
-                          setCreateRoleData({ ...createRoleData, companyName: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="modal-taxId">Tax ID</Label>
-                      <Input
-                        id="modal-taxId"
-                        value={createRoleData.taxId || ''}
-                        onChange={(e) =>
-                          setCreateRoleData({ ...createRoleData, taxId: e.target.value })
+                          setCreateRoleData({ ...createRoleData, clientCategories: e.target.value })
                         }
                       />
                     </div>
@@ -1254,44 +1194,15 @@ export const Persons = () => {
                 {createRoleType === PersonRole.SUPPLIER && (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="modal-companyName">Company Name *</Label>
+                      <Label htmlFor="modal-supplyCategories">Categorias de fornecimento</Label>
                       <Input
-                        id="modal-companyName"
-                        required
-                        value={createRoleData.companyName || ''}
-                        onChange={(e) => {
-                          setCreateRoleData({ ...createRoleData, companyName: e.target.value });
-                          if (fieldErrors.companyName) {
-                            setFieldErrors({ ...fieldErrors, companyName: '' });
-                          }
-                        }}
-                        className={fieldErrors.companyName ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                        id="modal-supplyCategories"
+                        placeholder="Ex: Insumos, Máquinas"
+                        value={createRoleData.supplyCategories || ''}
+                        onChange={(e) =>
+                          setCreateRoleData({ ...createRoleData, supplyCategories: e.target.value })
+                        }
                       />
-                      {fieldErrors.companyName && (
-                        <p className="text-sm text-red-600 flex items-center gap-1">
-                          <span>⚠️</span> {fieldErrors.companyName}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="modal-taxId">Tax ID *</Label>
-                      <Input
-                        id="modal-taxId"
-                        required
-                        value={createRoleData.taxId || ''}
-                        onChange={(e) => {
-                          setCreateRoleData({ ...createRoleData, taxId: e.target.value });
-                          if (fieldErrors.taxId) {
-                            setFieldErrors({ ...fieldErrors, taxId: '' });
-                          }
-                        }}
-                        className={fieldErrors.taxId ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                      />
-                      {fieldErrors.taxId && (
-                        <p className="text-sm text-red-600 flex items-center gap-1">
-                          <span>⚠️</span> {fieldErrors.taxId}
-                        </p>
-                      )}
                     </div>
                   </div>
                 )}
@@ -1431,7 +1342,7 @@ export const Persons = () => {
           <DialogHeader>
             <DialogTitle>Assign Role</DialogTitle>
             <DialogDescription>
-              Add a new role to {selectedPerson?.fullName}
+              Add a new role to {selectedPerson?.nome}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

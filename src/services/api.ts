@@ -12,9 +12,9 @@ export enum UserRole {
 
 export interface UserPerson {
   id: string;
-  firstName: string;
-  lastName: string;
-  fullName: string;
+  nome: string;
+  personType: string;
+  cpfCnpj?: string;
   email: string;
 }
 
@@ -41,9 +41,11 @@ export interface ApiError {
 // Document Types
 export interface DocumentType {
   id: string;
+  tenantId: string | null;
   name: string;
   group: string;
   hasAccessKey: boolean;
+  isSystem: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -52,6 +54,7 @@ export interface CreateDocumentTypeRequest {
   name: string;
   group: string;
   hasAccessKey: boolean;
+  tenantId?: string | null;
 }
 
 export interface UpdateDocumentTypeRequest {
@@ -69,17 +72,11 @@ export enum PersonRole {
 }
 
 export interface ClientRoleData {
-  companyName?: string;
-  taxId?: string;
-  preferredPaymentMethod?: string;
-  creditLimit?: number;
+  clientCategories?: string;
 }
 
 export interface SupplierRoleData {
-  companyName: string;
-  taxId: string;
   supplyCategories?: string;
-  paymentTerms?: string;
 }
 
 export interface WorkerRoleData {
@@ -103,9 +100,15 @@ export interface RoleAssignment {
   data: RoleData;
 }
 
+export enum PersonType {
+  FISICA = 'FISICA',
+  JURIDICA = 'JURIDICA',
+}
+
 export interface CreatePersonRequest {
-  firstName: string;
-  lastName: string;
+  nome: string;
+  personType: PersonType;
+  cpfCnpj?: string;
   email: string;
   phone?: string;
   userId?: string;
@@ -113,8 +116,9 @@ export interface CreatePersonRequest {
 }
 
 export interface UpdatePersonRequest {
-  firstName?: string;
-  lastName?: string;
+  nome?: string;
+  personType?: PersonType;
+  cpfCnpj?: string | null;
   email?: string;
   phone?: string;
 }
@@ -122,9 +126,9 @@ export interface UpdatePersonRequest {
 export interface Person {
   id: string;
   userId?: string;
-  firstName: string;
-  lastName: string;
-  fullName: string;
+  nome: string;
+  personType: PersonType;
+  cpfCnpj?: string;
   email: string;
   phone?: string;
   roles: Record<string, any>;
@@ -240,6 +244,11 @@ export interface UpdateItemRequest {
 }
 
 // Invoice (Nota Fiscal) Types
+export enum InvoiceType {
+  RECEITA = 'RECEITA',
+  DESPESA = 'DESPESA',
+}
+
 export enum InvoiceFinancialStatus {
   PENDING = 'PENDING',
   PAID = 'PAID',
@@ -273,7 +282,9 @@ export interface Invoice {
   issueDate: string;
   supplierId: string;
   documentTypeId?: string;
+  documentType?: DocumentType;
   notes?: string;
+  type: InvoiceType;
   items: (InvoiceItemDTO & { id: string; invoiceId: string; totalPrice?: number })[];
   financials: (InvoiceFinancialDTO & { id: string; invoiceId: string })[];
   itemsTotal?: number;
@@ -289,6 +300,7 @@ export interface CreateInvoiceRequest {
   supplierId: string;
   documentTypeId?: string;
   notes?: string;
+  type: InvoiceType;
   items: InvoiceItemDTO[];
   financials: InvoiceFinancialDTO[];
 }
@@ -300,6 +312,7 @@ export interface UpdateInvoiceRequest {
   supplierId?: string;
   documentTypeId?: string;
   notes?: string;
+  type?: InvoiceType;
   items?: InvoiceItemDTO[];
   financials?: InvoiceFinancialDTO[];
 }
@@ -307,15 +320,12 @@ export interface UpdateInvoiceRequest {
 export interface Supplier {
   id: string;
   personId: string;
-  companyName: string;
-  taxId: string;
   supplyCategories?: string | null;
-  paymentTerms?: string | null;
   person: {
     id: string;
-    firstName: string;
-    lastName: string;
-    fullName: string;
+    nome: string;
+    personType: string;
+    cpfCnpj?: string | null;
     email: string;
   } | null;
 }

@@ -41,12 +41,12 @@ const defaultForm: CreateInvoiceRequest = {
   supplierId: '',
   documentTypeId: '',
   notes: '',
-  type: InvoiceType.DESPESA,
+  type: InvoiceType.RECEITA,
   items: [],
   financials: [],
 };
 
-export const Invoices = () => {
+export const Revenues = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,10 +91,10 @@ export const Invoices = () => {
       setLoading(true);
       setError(null);
       const data = await apiService.getInvoices();
-      // Filtrar apenas despesas
-      setInvoices(data.filter((inv) => inv.type === InvoiceType.DESPESA));
+      // Filtrar apenas receitas
+      setInvoices(data.filter((inv) => inv.type === InvoiceType.RECEITA));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao carregar despesas');
+      setError(err instanceof Error ? err.message : 'Falha ao carregar receitas');
     } finally {
       setLoading(false);
     }
@@ -297,7 +297,7 @@ export const Invoices = () => {
         supplierId: formData.supplierId,
         documentTypeId: formData.documentTypeId?.trim() || undefined,
         notes: formData.notes?.trim() || undefined,
-        type: InvoiceType.DESPESA,
+        type: InvoiceType.RECEITA,
         items: formData.items!.map((it, i) => ({
           itemId: it.itemId,
           itemType: it.itemType,
@@ -318,7 +318,7 @@ export const Invoices = () => {
       resetForm();
       await loadInvoices();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao criar despesa');
+      setError(err instanceof Error ? err.message : 'Falha ao criar receita');
     }
   };
 
@@ -338,7 +338,7 @@ export const Invoices = () => {
         supplierId: formData.supplierId,
         documentTypeId: formData.documentTypeId?.trim() || undefined,
         notes: formData.notes?.trim() || undefined,
-        type: InvoiceType.DESPESA,
+        type: InvoiceType.RECEITA,
         items: formData.items!.map((it, i) => ({
           itemId: it.itemId,
           itemType: it.itemType,
@@ -360,18 +360,18 @@ export const Invoices = () => {
       resetForm();
       await loadInvoices();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao atualizar despesa');
+      setError(err instanceof Error ? err.message : 'Falha ao atualizar receita');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta despesa?')) return;
+    if (!confirm('Tem certeza que deseja excluir esta receita?')) return;
     try {
       setError(null);
       await apiService.deleteInvoice(id);
       await loadInvoices();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao excluir despesa');
+      setError(err instanceof Error ? err.message : 'Falha ao excluir receita');
     }
   };
 
@@ -397,7 +397,7 @@ export const Invoices = () => {
       supplierId: inv.supplierId,
       documentTypeId: inv.documentTypeId ?? '',
       notes: inv.notes ?? '',
-      type: InvoiceType.DESPESA,
+      type: InvoiceType.RECEITA,
       items: inv.items.map((it, i) => ({
         itemId: it.itemId,
         itemType: it.itemType as ItemType,
@@ -493,9 +493,9 @@ export const Invoices = () => {
       <div className="space-y-8">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold">Despesas</h1>
+            <h1 className="text-3xl font-bold">Receitas</h1>
             <p className="text-muted-foreground">
-              Cadastre e gerencie despesas com itens (produto/serviço) e parcelas financeiras
+              Cadastre e gerencie receitas com itens (produto/serviço) e parcelas financeiras
               (vencimentos).
             </p>
           </div>
@@ -506,7 +506,7 @@ export const Invoices = () => {
             }}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Nova despesa
+            Nova receita
           </Button>
         </div>
 
@@ -518,13 +518,13 @@ export const Invoices = () => {
         )}
 
         {loading ? (
-          <div className="text-center py-8">Carregando despesas...</div>
+          <div className="text-center py-8">Carregando receitas...</div>
         ) : invoices.length === 0 ? (
           <Card>
             <CardContent className="py-8">
               <div className="text-center text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Nenhuma despesa. Clique em &quot;Nova despesa&quot; para criar.</p>
+                <p>Nenhuma receita. Clique em &quot;Nova receita&quot; para criar.</p>
               </div>
             </CardContent>
           </Card>
@@ -603,7 +603,7 @@ export const Invoices = () => {
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Nova despesa</DialogTitle>
+              <DialogTitle>Nova receita</DialogTitle>
               <DialogDescription>
                 Preencha o cabeçalho, adicione itens (produto ou serviço) e parcelas financeiras
                 (vencimentos).
@@ -841,7 +841,7 @@ export const Invoices = () => {
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleCreate}>Criar despesa</Button>
+              <Button onClick={handleCreate}>Criar receita</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -850,7 +850,7 @@ export const Invoices = () => {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Editar despesa</DialogTitle>
+              <DialogTitle>Editar receita</DialogTitle>
               <DialogDescription>
                 Altere o cabeçalho, itens e parcelas conforme necessário.
               </DialogDescription>
@@ -1076,7 +1076,7 @@ export const Invoices = () => {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                Despesa {detailInvoice?.number}
+                Receita {detailInvoice?.number}
                 {detailInvoice?.series ? ` - Série ${detailInvoice.series}` : ''}
               </DialogTitle>
               <DialogDescription>

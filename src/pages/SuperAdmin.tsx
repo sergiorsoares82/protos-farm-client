@@ -539,8 +539,13 @@ export const SuperAdmin = () => {
                 />
               </div>
 
-              {filteredDocumentTypes.length === 0 ? (
-                <p className="text-sm text-gray-500">No document types configured yet.</p>
+              {loading ? (
+                <p className="text-sm text-gray-500">Carregando tipos de documento...</p>
+              ) : filteredDocumentTypes.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  Nenhum tipo de documento encontrado. Clique em &quot;Add Document Type&quot; para criar um novo tipo.
+                  {documentTypes.length === 0 && ' Execute o seed para criar os tipos do sistema.'}
+                </p>
               ) : (
                 <div className="space-y-2">
                   {filteredDocumentTypes.map((dt) => (
@@ -549,7 +554,14 @@ export const SuperAdmin = () => {
                       className="flex items-center justify-between border rounded-lg px-4 py-2"
                     >
                       <div>
-                        <p className="font-medium">{dt.name}</p>
+                        <p className="font-medium">
+                          {dt.name}
+                          {dt.isSystem && (
+                            <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                              Sistema
+                            </span>
+                          )}
+                        </p>
                         <p className="text-xs text-gray-500">
                           Group: {dt.group || 'N/A'} ·
                           {dt.hasAccessKey ? ' Requires access key' : ' No access key required'}
@@ -560,6 +572,8 @@ export const SuperAdmin = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => openEditDocTypeModal(dt)}
+                          disabled={dt.isSystem && !isSuperAdmin}
+                          title={dt.isSystem && !isSuperAdmin ? 'Apenas super admin pode editar tipos do sistema' : 'Editar'}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -567,6 +581,8 @@ export const SuperAdmin = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleDeleteDocumentType(dt.id)}
+                          disabled={dt.isSystem && !isSuperAdmin}
+                          title={dt.isSystem && !isSuperAdmin ? 'Apenas super admin pode excluir tipos do sistema' : 'Excluir'}
                         >
                           <Trash2 className="h-4 w-4 text-red-600" />
                         </Button>
