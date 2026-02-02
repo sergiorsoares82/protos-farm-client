@@ -77,7 +77,7 @@ export const Invoices = () => {
   
   // Modal de novo item (produto/serviço)
   const [showItemModal, setShowItemModal] = useState(false);
-  const [itemFormSearchTerm, setItemFormSearchTerm] = useState('');
+  const [_itemFormSearchTerm, setItemFormSearchTerm] = useState('');
   const [itemFormIndex, setItemFormIndex] = useState<number | null>(null);
   const [itemForm, setItemForm] = useState<CreateItemRequest>({
     name: '',
