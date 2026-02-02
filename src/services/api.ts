@@ -265,6 +265,10 @@ export interface InvoiceItemDTO {
   unit: string;
   unitPrice: number;
   lineOrder: number;
+  costCenterId?: string | null;
+  managementAccountId?: string | null;
+  seasonId?: string | null;
+  goesToStock?: boolean;
 }
 
 export interface InvoiceFinancialDTO {
@@ -286,12 +290,34 @@ export interface Invoice {
   documentType?: DocumentType;
   notes?: string;
   type: InvoiceType;
-  items: (InvoiceItemDTO & { id: string; invoiceId: string; totalPrice?: number })[];
+  items: (InvoiceItemDTO & { id: string; invoiceId: string; totalPrice?: number; quantityReceivedTotal?: number })[];
   financials: (InvoiceFinancialDTO & { id: string; invoiceId: string })[];
   itemsTotal?: number;
   financialsTotal?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface InvoiceReceiptItemDTO {
+  id: string;
+  invoiceItemId: string;
+  quantityReceived: number;
+}
+
+export interface InvoiceReceiptDTO {
+  id: string;
+  invoiceId: string;
+  receiptDate: string;
+  notes?: string | null;
+  items: InvoiceReceiptItemDTO[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateInvoiceReceiptRequest {
+  receiptDate: string;
+  notes?: string | null;
+  items: { invoiceItemId: string; quantityReceived: number }[];
 }
 
 export interface CreateInvoiceRequest {
@@ -1223,6 +1249,25 @@ class ApiService {
       body: JSON.stringify(paidAt ? { paidAt } : {}),
     });
     const data = await this.handleResponse<{ success: boolean; data: Invoice }>(response);
+    return data.data;
+  }
+
+  async getInvoiceReceipts(invoiceId: string): Promise<InvoiceReceiptDTO[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/invoices/${invoiceId}/receipts`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: InvoiceReceiptDTO[] }>(response);
+    return data.data;
+  }
+
+  async createInvoiceReceipt(invoiceId: string, payload: CreateInvoiceReceiptRequest): Promise<InvoiceReceiptDTO> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/invoices/${invoiceId}/receipts`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: InvoiceReceiptDTO }>(response);
     return data.data;
   }
 

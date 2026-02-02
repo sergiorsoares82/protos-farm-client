@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { AutocompleteWithCreate } from '@/components/ui/autocomplete-with-create';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { FileText, Plus, Pencil, Trash2, AlertCircle, DollarSign, Package, UserPlus } from 'lucide-react';
 import {
   apiService,
@@ -23,12 +24,17 @@ import {
   UpdateInvoiceRequest,
   InvoiceItemDTO,
   InvoiceFinancialDTO,
+  InvoiceReceiptDTO,
+  CreateInvoiceReceiptRequest,
   ItemType,
   Item,
   Supplier,
   InvoiceType,
   DocumentType,
   UnitOfMeasure,
+  CostCenter,
+  ManagementAccount,
+  Season,
   CreatePersonRequest,
   PersonType,
   PersonRole,
@@ -47,6 +53,9 @@ const defaultForm: CreateInvoiceRequest = {
   financials: [],
 };
 
+/** Valor sentinela para opção "Nenhum/Nenhuma" (Radix Select não aceita value="") */
+const NONE_VALUE = '__none__';
+
 export const Revenues = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,11 +64,22 @@ export const Revenues = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [receiptForm, setReceiptForm] = useState<{
+    receiptDate: string;
+    notes: string;
+    items: { invoiceItemId: string; quantityReceived: number }[];
+  }>({ receiptDate: '', notes: '', items: [] });
+  const [invoiceReceipts, setInvoiceReceipts] = useState<InvoiceReceiptDTO[]>([]);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
   const [unitOfMeasures, setUnitOfMeasures] = useState<UnitOfMeasure[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [managementAccounts, setManagementAccounts] = useState<ManagementAccount[]>([]);
+  const [seasons, setSeasons] = useState<Season[]>([]);
 
   const [formData, setFormData] = useState<CreateInvoiceRequest>({ ...defaultForm });
   
@@ -110,16 +130,30 @@ export const Revenues = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        const [suppliersRes, itemsRes, documentTypesRes, unitOfMeasuresRes] = await Promise.all([
+        const [
+          suppliersRes,
+          itemsRes,
+          documentTypesRes,
+          unitOfMeasuresRes,
+          costCentersRes,
+          managementAccountsRes,
+          seasonsRes,
+        ] = await Promise.all([
           apiService.getSuppliers(),
           apiService.getItems(),
           apiService.getDocumentTypes(),
           apiService.getUnitOfMeasures(),
+          apiService.getCostCenters(),
+          apiService.getManagementAccounts(),
+          apiService.getSeasons(),
         ]);
         setSuppliers(suppliersRes);
         setItems(itemsRes);
         setDocumentTypes(documentTypesRes);
         setUnitOfMeasures(unitOfMeasuresRes.filter((u) => u.isActive));
+        setCostCenters(costCentersRes.filter((c) => c.isActive));
+        setManagementAccounts(managementAccountsRes);
+        setSeasons(seasonsRes.filter((s) => s.isActive));
       } catch (err) {
         console.error('Failed to load lookups', err);
       }
@@ -222,16 +256,20 @@ export const Revenues = () => {
         {
           itemId: '',
           itemType: ItemType.PRODUCT,
-          quantity: 1,
+          quantity: 0,
           unit: '',
           unitPrice: 0,
           lineOrder: prev.items?.length ?? 0,
+          costCenterId: undefined,
+          managementAccountId: undefined,
+          seasonId: undefined,
+          goesToStock: false,
         },
       ],
     }));
   };
 
-  const updateItemLine = (index: number, field: keyof InvoiceItemDTO, value: string | number) => {
+  const updateItemLine = (index: number, field: keyof InvoiceItemDTO, value: string | number | boolean) => {
     setFormData((prev) => {
       const lines = [...(prev.items ?? [])];
       if (!lines[index]) return prev;
@@ -315,6 +353,10 @@ export const Revenues = () => {
           unitPrice: it.unitPrice,
           lineOrder: i,
           description: it.description?.trim() || undefined,
+          costCenterId: it.costCenterId?.trim() || undefined,
+          managementAccountId: it.managementAccountId?.trim() || undefined,
+          seasonId: it.seasonId?.trim() || undefined,
+          goesToStock: it.goesToStock ?? false,
         })),
         financials: formData.financials!.map((f) => ({
           dueDate: f.dueDate,
@@ -356,6 +398,10 @@ export const Revenues = () => {
           unitPrice: it.unitPrice,
           lineOrder: i,
           description: it.description?.trim() || undefined,
+          costCenterId: it.costCenterId?.trim() || undefined,
+          managementAccountId: it.managementAccountId?.trim() || undefined,
+          seasonId: it.seasonId?.trim() || undefined,
+          goesToStock: it.goesToStock ?? false,
         })),
         financials: formData.financials!.map((f) => ({
           dueDate: f.dueDate,
@@ -415,6 +461,10 @@ export const Revenues = () => {
         unitPrice: it.unitPrice,
         lineOrder: i,
         description: it.description,
+        costCenterId: (it as { costCenterId?: string | null }).costCenterId ?? undefined,
+        managementAccountId: (it as { managementAccountId?: string | null }).managementAccountId ?? undefined,
+        seasonId: (it as { seasonId?: string | null }).seasonId ?? undefined,
+        goesToStock: (it as { goesToStock?: boolean }).goesToStock ?? false,
       })),
       financials: inv.financials.map((f) => ({
         dueDate: f.dueDate.slice(0, 10),
@@ -423,6 +473,54 @@ export const Revenues = () => {
       })),
     });
     setIsEditDialogOpen(true);
+  };
+
+  const openReceiptModal = () => {
+    if (!detailInvoice) return;
+    const stockItems = detailInvoice.items.filter((i) => (i as { goesToStock?: boolean }).goesToStock);
+    setReceiptForm({
+      receiptDate: new Date().toISOString().slice(0, 10),
+      notes: '',
+      items: stockItems.map((i) => ({
+        invoiceItemId: i.id,
+        quantityReceived: 0,
+      })),
+    });
+    setReceiptError(null);
+    setIsReceiptModalOpen(true);
+  };
+
+  const updateReceiptLineQty = (invoiceItemId: string, quantityReceived: number) => {
+    setReceiptForm((prev) => ({
+      ...prev,
+      items: prev.items.map((it) =>
+        it.invoiceItemId === invoiceItemId ? { ...it, quantityReceived } : it
+      ),
+    }));
+  };
+
+  const handleCreateReceipt = async () => {
+    if (!detailInvoice) return;
+    try {
+      setReceiptError(null);
+      const payload: CreateInvoiceReceiptRequest = {
+        receiptDate: receiptForm.receiptDate,
+        notes: receiptForm.notes.trim() || undefined,
+        items: receiptForm.items.filter((i) => i.quantityReceived > 0),
+      };
+      if (payload.items.length === 0) {
+        setReceiptError('Informe ao menos uma quantidade recebida.');
+        return;
+      }
+      await apiService.createInvoiceReceipt(detailInvoice.id, payload);
+      const full = await apiService.getInvoice(detailInvoice.id);
+      setDetailInvoice(full);
+      const receipts = await apiService.getInvoiceReceipts(detailInvoice.id);
+      setInvoiceReceipts(receipts);
+      setIsReceiptModalOpen(false);
+    } catch (err) {
+      setReceiptError(err instanceof Error ? err.message : 'Falha ao registrar recebimento');
+    }
   };
 
   const formatDate = (iso: string) => {
@@ -583,7 +681,16 @@ export const Revenues = () => {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
-                              onClick={() => setDetailInvoice(inv)}
+                              onClick={async () => {
+                                try {
+                                  const full = await apiService.getInvoice(inv.id);
+                                  setDetailInvoice(full);
+                                  const receipts = await apiService.getInvoiceReceipts(inv.id);
+                                  setInvoiceReceipts(receipts);
+                                } catch (e) {
+                                  console.error(e);
+                                }
+                              }}
                               title="Detalhes"
                             >
                               <FileText className="h-4 w-4" />
@@ -619,15 +726,16 @@ export const Revenues = () => {
 
         {/* Create Dialog */}
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
+            <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
               <DialogTitle>Nova receita</DialogTitle>
               <DialogDescription>
                 Preencha o cabeçalho, adicione itens (produto ou serviço) e parcelas financeiras
                 (vencimentos).
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="grid gap-4 py-4 px-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Número *</Label>
@@ -726,10 +834,10 @@ export const Revenues = () => {
                     {(formData.items ?? []).map((line, index) => (
                       <div
                         key={index}
-                        className="grid grid-cols-12 gap-2 items-end border rounded p-2 bg-muted/30"
+                        className="grid grid-cols-[minmax(140px,2fr)_56px_70px_80px_80px_minmax(100px,1fr)_minmax(100px,1fr)_minmax(80px,1fr)_40px_36px] gap-x-2 gap-y-1.5 border rounded p-2 bg-muted/30 items-end"
                       >
-                        <div className="col-span-4">
-                          <Label className="text-xs">Produto/Serviço</Label>
+                        <div className="min-w-0 flex flex-col gap-1.5">
+                          <Label className="text-xs block text-left">Produto/Serviço</Label>
                           <AutocompleteWithCreate
                             options={items.map((i) => ({
                               value: i.id,
@@ -741,25 +849,27 @@ export const Revenues = () => {
                               setItemAutocompleteOpenCount((c) => (open ? c + 1 : Math.max(0, c - 1)))
                             }
                             onCreateClick={(searchTerm) => handleCreateItemClick(index, searchTerm)}
-                            placeholder="Digite para buscar..."
+                            placeholder="Buscar..."
                             emptyMessage="Nenhum item encontrado"
                             createButtonText="Criar novo produto/serviço"
                           />
                         </div>
-                        <div className="col-span-1">
-                          <Label className="text-xs">Qtd</Label>
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs block text-left">Qtd</Label>
                           <Input
                             type="number"
                             min="0.01"
                             step="0.01"
-                            value={line.quantity}
+                            placeholder="1"
+                            className="h-9 px-2"
+                            value={line.quantity === 0 ? '' : line.quantity}
                             onChange={(e) =>
                               updateItemLine(index, 'quantity', parseFloat(e.target.value) || 0)
                             }
                           />
                         </div>
-                        <div className="col-span-1">
-                          <Label className="text-xs">Unidade</Label>
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs block text-left">Un.</Label>
                           <Select
                             value={line.unit || ''}
                             onValueChange={(value) => updateItemLine(index, 'unit', value)}
@@ -770,36 +880,112 @@ export const Revenues = () => {
                             <SelectContent>
                               {unitOfMeasures.map((u) => (
                                 <SelectItem key={u.id} value={u.code}>
-                                  {u.code} - {u.name}
+                                  {u.code}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="col-span-2">
-                          <Label className="text-xs">Preço unit.</Label>
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs block text-left">Preço unit.</Label>
                           <Input
                             type="number"
                             min="0"
                             step="0.01"
-                            value={line.unitPrice}
+                            placeholder="0,00"
+                            className="h-9 px-2"
+                            value={line.unitPrice === 0 ? '' : line.unitPrice}
                             onChange={(e) =>
                               updateItemLine(index, 'unitPrice', parseFloat(e.target.value) || 0)
                             }
                           />
                         </div>
-                        <div className="col-span-2">
-                          <Label className="text-xs">Total</Label>
-                          <p className="text-sm font-medium">
-                            R$ {(line.quantity * line.unitPrice).toFixed(2)}
-                          </p>
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-xs block text-left">Total</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0,00"
+                            className="h-9 px-2"
+                            value={line.quantity && line.unitPrice ? (line.quantity * line.unitPrice) : ''}
+                            onChange={(e) => {
+                              const total = parseFloat(e.target.value) || 0;
+                              const qty = line.quantity > 0 ? line.quantity : 1;
+                              updateItemLine(index, 'unitPrice', total / qty);
+                            }}
+                          />
                         </div>
-                        <div className="col-span-1">
+                        <div className="min-w-0 flex flex-col gap-1.5">
+                          <Label className="text-xs block text-left">Centro custo</Label>
+                          <Select
+                            value={line.costCenterId || NONE_VALUE}
+                            onValueChange={(value) => updateItemLine(index, 'costCenterId', value === NONE_VALUE ? (undefined as any) : value)}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="—" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={NONE_VALUE}>Nenhum</SelectItem>
+                              {costCenters.map((c) => (
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.code} - {c.description}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="min-w-0 flex flex-col gap-1.5">
+                          <Label className="text-xs block text-left">Conta ger.</Label>
+                          <Select
+                            value={line.managementAccountId || NONE_VALUE}
+                            onValueChange={(value) => updateItemLine(index, 'managementAccountId', value === NONE_VALUE ? (undefined as any) : value)}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="—" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={NONE_VALUE}>Nenhuma</SelectItem>
+                              {managementAccounts.map((m) => (
+                                <SelectItem key={m.id} value={m.id}>
+                                  {m.code} - {m.description}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="min-w-0 flex flex-col gap-1.5">
+                          <Label className="text-xs block text-left">Safra</Label>
+                          <Select
+                            value={line.seasonId || NONE_VALUE}
+                            onValueChange={(value) => updateItemLine(index, 'seasonId', value === NONE_VALUE ? (undefined as any) : value)}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="—" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={NONE_VALUE}>Nenhuma</SelectItem>
+                              {seasons.map((s) => (
+                                <SelectItem key={s.id} value={s.id}>
+                                  {s.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex flex-col gap-1.5 justify-end">
+                          <Label className="text-xs block text-left">Estoque</Label>
+                          <Checkbox
+                            checked={line.goesToStock ?? false}
+                            onCheckedChange={(checked) => updateItemLine(index, 'goesToStock', checked === true)}
+                          />
+                        </div>
+                        <div className="flex flex-col justify-end">
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-red-500"
+                            className="h-8 w-8 text-red-500 shrink-0"
                             onClick={() => removeItemLine(index)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -871,7 +1057,8 @@ export const Revenues = () => {
                 )}
               </div>
             </div>
-            <DialogFooter>
+            </div>
+            <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancelar
               </Button>
@@ -882,14 +1069,15 @@ export const Revenues = () => {
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
+            <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
               <DialogTitle>Editar receita</DialogTitle>
               <DialogDescription>
                 Altere o cabeçalho, itens e parcelas conforme necessário.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="grid gap-4 py-4 px-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Número *</Label>
@@ -977,12 +1165,12 @@ export const Revenues = () => {
                 {(formData.items ?? []).map((line, index) => (
                   <div
                     key={index}
-                    className="grid grid-cols-12 gap-2 items-end border rounded p-2 bg-muted/30 mb-2"
+                    className="grid grid-cols-[minmax(140px,2fr)_56px_70px_80px_80px_minmax(100px,1fr)_minmax(100px,1fr)_minmax(80px,1fr)_40px_36px] gap-x-2 gap-y-1.5 border rounded p-2 bg-muted/30 mb-2 items-end"
                   >
-                    <div className="col-span-4">
-                      <Label className="text-xs">Produto/Serviço</Label>
+                    <div className="min-w-0 flex flex-col gap-1.5">
+                      <Label className="text-xs block text-left">Produto/Serviço</Label>
                       <select
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                        className="flex h-9 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm"
                         value={line.itemId}
                         onChange={(e) => onItemSelect(index, e.target.value)}
                       >
@@ -994,20 +1182,22 @@ export const Revenues = () => {
                         ))}
                       </select>
                     </div>
-                    <div className="col-span-1">
-                      <Label className="text-xs">Qtd</Label>
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-xs block text-left">Qtd</Label>
                       <Input
                         type="number"
                         min="0.01"
                         step="0.01"
-                        value={line.quantity}
+                        placeholder="1"
+                        className="h-9 px-2"
+                        value={line.quantity === 0 ? '' : line.quantity}
                         onChange={(e) =>
                           updateItemLine(index, 'quantity', parseFloat(e.target.value) || 0)
                         }
                       />
                     </div>
-                    <div className="col-span-1">
-                      <Label className="text-xs">Unidade</Label>
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-xs block text-left">Un.</Label>
                       <Select
                         value={line.unit || ''}
                         onValueChange={(value) => updateItemLine(index, 'unit', value)}
@@ -1018,36 +1208,123 @@ export const Revenues = () => {
                         <SelectContent>
                           {unitOfMeasures.map((u) => (
                             <SelectItem key={u.id} value={u.code}>
-                              {u.code} - {u.name}
+                              {u.code}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="col-span-2">
-                      <Label className="text-xs">Preço unit.</Label>
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-xs block text-left">Preço unit.</Label>
                       <Input
                         type="number"
                         min="0"
                         step="0.01"
-                        value={line.unitPrice}
+                        placeholder="0,00"
+                        className="h-9 px-2"
+                        value={line.unitPrice === 0 ? '' : line.unitPrice}
                         onChange={(e) =>
                           updateItemLine(index, 'unitPrice', parseFloat(e.target.value) || 0)
                         }
                       />
                     </div>
-                    <div className="col-span-2">
-                      <Label className="text-xs">Total</Label>
-                      <p className="text-sm font-medium">
-                        R$ {(line.quantity * line.unitPrice).toFixed(2)}
-                      </p>
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-xs block text-left">Total</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0,00"
+                        className="h-9 px-2"
+                        value={line.quantity && line.unitPrice ? (line.quantity * line.unitPrice) : ''}
+                        onChange={(e) => {
+                          const total = parseFloat(e.target.value) || 0;
+                          const qty = line.quantity > 0 ? line.quantity : 1;
+                          updateItemLine(index, 'unitPrice', total / qty);
+                        }}
+                      />
                     </div>
-                    <div className="col-span-1">
+                    <div className="flex flex-col justify-end">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-red-500"
+                        className="h-8 w-8 text-red-500 shrink-0"
+                        onClick={() => removeItemLine(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="min-w-0 flex flex-col gap-1.5">
+                      <Label className="text-xs block text-left">Centro custo</Label>
+                      <Select
+                        value={line.costCenterId || NONE_VALUE}
+                        onValueChange={(value) => updateItemLine(index, 'costCenterId', value === NONE_VALUE ? (undefined as any) : value)}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="—" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NONE_VALUE}>Nenhum</SelectItem>
+                          {costCenters.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.code} - {c.description}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="min-w-0 flex flex-col gap-1.5">
+                      <Label className="text-xs block text-left">Conta ger.</Label>
+                      <Select
+                        value={line.managementAccountId || NONE_VALUE}
+                        onValueChange={(value) => updateItemLine(index, 'managementAccountId', value === NONE_VALUE ? (undefined as any) : value)}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="—" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NONE_VALUE}>Nenhuma</SelectItem>
+                          {managementAccounts.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.code} - {m.description}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="min-w-0 flex flex-col gap-1.5">
+                      <Label className="text-xs block text-left">Safra</Label>
+                      <Select
+                        value={line.seasonId || NONE_VALUE}
+                        onValueChange={(value) => updateItemLine(index, 'seasonId', value === NONE_VALUE ? (undefined as any) : value)}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="—" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NONE_VALUE}>Nenhuma</SelectItem>
+                          {seasons.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-1.5 justify-end">
+                      <Label className="text-xs block text-left">Estoque</Label>
+                      <Checkbox
+                        checked={line.goesToStock ?? false}
+                        onCheckedChange={(checked) => updateItemLine(index, 'goesToStock', checked === true)}
+                      />
+                    </div>
+                    <div className="flex flex-col justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 shrink-0"
                         onClick={() => removeItemLine(index)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1107,7 +1384,8 @@ export const Revenues = () => {
                 ))}
               </div>
             </div>
-            <DialogFooter>
+            </div>
+            <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Cancelar
               </Button>
@@ -1118,8 +1396,8 @@ export const Revenues = () => {
 
         {/* Detail Dialog: items, financials, mark as paid */}
         <Dialog open={!!detailInvoice} onOpenChange={(open) => !open && setDetailInvoice(null)}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
+            <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
               <DialogTitle>
                 Receita {detailInvoice?.number}
                 {detailInvoice?.series ? ` - Série ${detailInvoice.series}` : ''}
@@ -1128,25 +1406,43 @@ export const Revenues = () => {
                 Emissão: {detailInvoice && formatDate(detailInvoice.issueDate)} • Fornecedor:{' '}
                 {detailInvoice && getSupplierName(detailInvoice.supplierId)}
               </DialogDescription>
+              {detailInvoice && detailInvoice.items.some((i) => (i as { goesToStock?: boolean }).goesToStock) && (
+                <Button type="button" variant="outline" size="sm" className="mt-2 w-fit" onClick={openReceiptModal}>
+                  <Package className="h-4 w-4 mr-1" /> Registrar recebimento
+                </Button>
+              )}
             </DialogHeader>
             {detailInvoice && (
-              <div className="space-y-4 py-4">
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
+              <div className="space-y-4">
                 <div>
                   <Label className="text-sm font-medium">Itens</Label>
                   <div className="mt-2 border rounded divide-y text-sm">
                     {detailInvoice.items?.length ? (
-                      detailInvoice.items.map((line) => (
-                        <div
-                          key={line.id}
-                          className="flex justify-between px-3 py-2"
-                        >
-                          <span>{getItemName(line.itemId)}</span>
-                          <span>
-                            {line.quantity} {line.unit} × R$ {Number(line.unitPrice).toFixed(2)} = R${' '}
-                            {(line.totalPrice ?? line.quantity * line.unitPrice).toFixed(2)}
-                          </span>
-                        </div>
-                      ))
+                      detailInvoice.items.map((line) => {
+                        const goesToStock = (line as { goesToStock?: boolean }).goesToStock;
+                        const received = (line as { quantityReceivedTotal?: number }).quantityReceivedTotal ?? 0;
+                        return (
+                          <div
+                            key={line.id}
+                            className="flex justify-between items-start px-3 py-2 gap-2"
+                          >
+                            <span>
+                              {getItemName(line.itemId)}
+                              {goesToStock && (
+                                <span className="block text-xs text-muted-foreground mt-0.5">
+                                  Faturado: {line.quantity} {line.unit}
+                                  {received > 0 && ` • Recebido: ${received} ${line.unit}`}
+                                </span>
+                              )}
+                            </span>
+                            <span>
+                              {line.quantity} {line.unit} × R$ {Number(line.unitPrice).toFixed(2)} = R${' '}
+                              {(line.totalPrice ?? line.quantity * line.unitPrice).toFixed(2)}
+                            </span>
+                          </div>
+                        );
+                      })
                     ) : (
                       <p className="px-3 py-2 text-muted-foreground">Nenhum item</p>
                     )}
@@ -1195,8 +1491,107 @@ export const Revenues = () => {
                     </p>
                   )}
                 </div>
+                {invoiceReceipts.length > 0 && (
+                  <div>
+                    <Label className="text-sm font-medium">Recebimentos</Label>
+                    <div className="mt-2 border rounded divide-y text-sm">
+                      {invoiceReceipts.map((rec) => (
+                        <div key={rec.id} className="px-3 py-2">
+                          <span className="font-medium">{formatDate(rec.receiptDate)}</span>
+                          {rec.notes && <span className="text-muted-foreground ml-2">— {rec.notes}</span>}
+                          <ul className="mt-1 ml-2 text-muted-foreground list-disc list-inside">
+                            {rec.items.map((ri) => {
+                              const invItem = detailInvoice.items.find((i) => i.id === ri.invoiceItemId);
+                              return (
+                                <li key={ri.id}>
+                                  {invItem ? getItemName(invItem.itemId) : ri.invoiceItemId}: {ri.quantityReceived}{' '}
+                                  {invItem?.unit ?? ''}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Receipt (Registrar recebimento) Modal */}
+        <Dialog open={isReceiptModalOpen} onOpenChange={(open) => !open && setIsReceiptModalOpen(false)}>
+          <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
+            <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
+              <DialogTitle>Registrar recebimento</DialogTitle>
+              <DialogDescription>
+                Informe a data e as quantidades recebidas por item (apenas itens que vão para estoque).
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
+              {receiptError && (
+                <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">{receiptError}</div>
+              )}
+              <div>
+                <Label>Data do recebimento</Label>
+                <Input
+                  type="date"
+                  value={receiptForm.receiptDate}
+                  onChange={(e) => setReceiptForm((p) => ({ ...p, receiptDate: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Observações (opcional)</Label>
+                <Input
+                  value={receiptForm.notes}
+                  onChange={(e) => setReceiptForm((p) => ({ ...p, notes: e.target.value }))}
+                  placeholder="Ex.: Entrega parcial"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Quantidades neste recebimento</Label>
+                <div className="mt-2 space-y-2">
+                  {receiptForm.items.map((ri) => {
+                    const invItem = detailInvoice?.items.find((i) => i.id === ri.invoiceItemId);
+                    if (!invItem) return null;
+                    const ordered = invItem.quantity;
+                    const alreadyReceived = (invItem as { quantityReceivedTotal?: number }).quantityReceivedTotal ?? 0;
+                    const max = Math.max(0, ordered - alreadyReceived);
+                    return (
+                      <div key={ri.invoiceItemId} className="flex items-center gap-2 flex-wrap">
+                        <span className="min-w-[140px] text-sm">{getItemName(invItem.itemId)}</span>
+                        <span className="text-xs text-muted-foreground">
+                          faturado: {ordered} {invItem.unit} • já recebido: {alreadyReceived}
+                        </span>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={max}
+                          step="any"
+                          value={ri.quantityReceived || ''}
+                          onChange={(e) =>
+                            updateReceiptLineQty(ri.invoiceItemId, parseFloat(e.target.value) || 0)
+                          }
+                          placeholder="0"
+                          className="w-24 h-8"
+                        />
+                        <span className="text-xs text-muted-foreground">{invItem.unit}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+              <Button variant="outline" onClick={() => setIsReceiptModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleCreateReceipt}>Registrar recebimento</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 
@@ -1215,13 +1610,14 @@ export const Revenues = () => {
             });
           }
         }}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
+          <DialogContent className="max-w-md max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
+            <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
               <DialogTitle>Novo Fornecedor</DialogTitle>
               <DialogDescription>
                 Cadastre um novo fornecedor rapidamente
               </DialogDescription>
             </DialogHeader>
+            <div className="flex-1 min-h-0 overflow-y-auto px-6">
             {supplierFormError && (
               <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
                 {supplierFormError}
@@ -1297,7 +1693,8 @@ export const Revenues = () => {
                 />
               </div>
             </div>
-            <DialogFooter>
+            </div>
+            <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
               <Button variant="outline" onClick={() => setShowSupplierModal(false)}>
                 Cancelar
               </Button>
@@ -1324,19 +1721,20 @@ export const Revenues = () => {
             });
           }
         }}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
+          <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
+            <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
               <DialogTitle>Novo Produto/Serviço</DialogTitle>
               <DialogDescription>
                 Cadastre um novo produto ou serviço rapidamente
               </DialogDescription>
             </DialogHeader>
+            <div className="flex-1 min-h-0 overflow-y-auto px-6">
             {itemFormError && (
-              <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
+              <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm mb-4">
                 {itemFormError}
               </div>
             )}
-            <div className="space-y-4 py-4">
+            <div className="grid grid-cols-[1fr_120px_1fr_100px_120px] gap-4 py-4 items-end">
               <div className="space-y-2">
                 <Label htmlFor="item-name">Nome *</Label>
                 <Input
@@ -1373,40 +1771,39 @@ export const Revenues = () => {
                   placeholder="Opcional"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="item-price">Preço</Label>
-                  <Input
-                    id="item-price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={itemForm.price ?? ''}
-                    onChange={(e) => setItemForm({ ...itemForm, price: e.target.value ? parseFloat(e.target.value) : undefined })}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="item-unit">Unidade de medida *</Label>
-                  <Select
-                    value={itemForm.unit || ''}
-                    onValueChange={(value) => setItemForm({ ...itemForm, unit: value })}
-                  >
-                    <SelectTrigger id="item-unit">
-                      <SelectValue placeholder="Selecione a unidade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {unitOfMeasures.map((u) => (
-                        <SelectItem key={u.id} value={u.code}>
-                          {u.code} - {u.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="item-price">Preço</Label>
+                <Input
+                  id="item-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={itemForm.price ?? ''}
+                  onChange={(e) => setItemForm({ ...itemForm, price: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  placeholder="0,00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="item-unit">Unidade *</Label>
+                <Select
+                  value={itemForm.unit || ''}
+                  onValueChange={(value) => setItemForm({ ...itemForm, unit: value })}
+                >
+                  <SelectTrigger id="item-unit">
+                    <SelectValue placeholder="Un." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {unitOfMeasures.map((u) => (
+                      <SelectItem key={u.id} value={u.code}>
+                        {u.code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-            <DialogFooter>
+            </div>
+            <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
               <Button variant="outline" onClick={() => setShowItemModal(false)}>
                 Cancelar
               </Button>
