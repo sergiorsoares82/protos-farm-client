@@ -80,6 +80,7 @@ const navItems: NavItem[] = [
   { name: 'Movimentos de Estoque', path: '/stock-movements', icon: ArrowLeftRight, roles: 'all' },
   { name: 'Despesas', path: '/invoices', icon: FileText, roles: 'all' },
   { name: 'Recebimento de Produtos', path: '/product-receipts', icon: Package, roles: 'all' },
+  { name: 'Saída de Produtos', path: '/product-shipments', icon: Truck, roles: 'all' },
   { name: 'Receitas', path: '/revenues', icon: FileText, roles: 'all' },
   { name: 'Machine Types', path: '/machine-types', icon: Truck, roles: 'all' },
   { name: 'Machines (Máquinas)', path: '/machines', icon: Truck, roles: 'all' },

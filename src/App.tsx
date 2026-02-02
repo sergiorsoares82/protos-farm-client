@@ -21,6 +21,7 @@ import { StockMovements } from '@/pages/StockMovements';
 import { Invoices } from '@/pages/Invoices';
 import { Revenues } from '@/pages/Revenues';
 import { ProductReceipts } from '@/pages/ProductReceipts';
+import { ProductShipments } from '@/pages/ProductShipments';
 import { MachineTypes } from '@/pages/MachineTypes';
 import { Machines } from '@/pages/Machines';
 import { Assets } from '@/pages/Assets';
@@ -162,6 +163,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProductReceipts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/product-shipments"
+            element={
+              <ProtectedRoute>
+                <ProductShipments />
               </ProtectedRoute>
             }
           />

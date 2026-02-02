@@ -24,37 +24,37 @@ import {
 import {
   apiService,
   Invoice,
-  InvoiceReceiptDTO,
-  CreateInvoiceReceiptRequest,
+  InvoiceShipmentDTO,
+  CreateInvoiceShipmentRequest,
   Item,
   Supplier,
 } from '@/services/api';
 
-type ReceiptFilter = 'pending' | 'with_receipts';
+type ShipmentFilter = 'pending' | 'with_shipments';
 
-export const ProductReceipts = () => {
-  const [filter, setFilter] = useState<ReceiptFilter>('pending');
+export const ProductShipments = () => {
+  const [filter, setFilter] = useState<ShipmentFilter>('pending');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
-  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
-  const [receiptForm, setReceiptForm] = useState<{
-    receiptDate: string;
+  const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
+  const [shipmentForm, setShipmentForm] = useState<{
+    shipmentDate: string;
     notes: string;
     items: {
       invoiceItemId: string;
-      quantityReceived: number;
+      quantityShipped: number;
       useDefaultDate: boolean;
-      customReceiptDate?: string;
+      customShipmentDate?: string;
     }[];
-  }>({ receiptDate: '', notes: '', items: [] });
-  const [invoiceReceipts, setInvoiceReceipts] = useState<InvoiceReceiptDTO[]>([]);
-  const [receiptError, setReceiptError] = useState<string | null>(null);
+  }>({ shipmentDate: '', notes: '', items: [] });
+  const [invoiceShipments, setInvoiceShipments] = useState<InvoiceShipmentDTO[]>([]);
+  const [shipmentError, setShipmentError] = useState<string | null>(null);
 
   const [detailViewInvoice, setDetailViewInvoice] = useState<Invoice | null>(null);
-  const [detailReceipts, setDetailReceipts] = useState<InvoiceReceiptDTO[]>([]);
-  const [deletingReceiptId, setDeletingReceiptId] = useState<string | null>(null);
+  const [detailShipments, setDetailShipments] = useState<InvoiceShipmentDTO[]>([]);
+  const [deletingShipmentId, setDeletingShipmentId] = useState<string | null>(null);
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -65,8 +65,8 @@ export const ProductReceipts = () => {
       setError(null);
       const data =
         filter === 'pending'
-          ? await apiService.getInvoices({ pendingReceipt: true })
-          : await apiService.getInvoices({ withReceipts: true });
+          ? await apiService.getInvoices({ pendingShipment: true })
+          : await apiService.getInvoices({ withShipments: true });
       setInvoices(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar notas');
@@ -95,33 +95,33 @@ export const ProductReceipts = () => {
     loadLookups();
   }, []);
 
-  const openReceiptModal = async (invoice: Invoice, fromDetailDialog = false) => {
+  const openShipmentModal = async (invoice: Invoice, fromDetailDialog = false) => {
     try {
       const full = await apiService.getInvoice(invoice.id);
-      const receipts = await apiService.getInvoiceReceipts(invoice.id);
+      const shipments = await apiService.getInvoiceShipments(invoice.id);
       setDetailInvoice(full);
-      setInvoiceReceipts(receipts);
+      setInvoiceShipments(shipments);
       if (fromDetailDialog) {
-        setDetailReceipts(receipts);
+        setDetailShipments(shipments);
       }
       const stockItems = full.items.filter((i) => (i as { goesToStock?: boolean }).goesToStock);
-      setReceiptForm({
-        receiptDate: full.issueDate.slice(0, 10),
+      setShipmentForm({
+        shipmentDate: full.issueDate.slice(0, 10),
         notes: '',
         items: stockItems.map((i) => {
           const ordered = i.quantity;
-          const alreadyReceived = (i as { quantityReceivedTotal?: number }).quantityReceivedTotal ?? 0;
-          const pending = Math.max(0, ordered - alreadyReceived);
+          const alreadyShipped = (i as { quantityShippedTotal?: number }).quantityShippedTotal ?? 0;
+          const pending = Math.max(0, ordered - alreadyShipped);
           return {
             invoiceItemId: i.id,
-            quantityReceived: pending,
+            quantityShipped: pending,
             useDefaultDate: true,
-            customReceiptDate: undefined,
+            customShipmentDate: undefined,
           };
         }),
       });
-      setReceiptError(null);
-      setIsReceiptModalOpen(true);
+      setShipmentError(null);
+      setIsShipmentModalOpen(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao abrir nota');
     }
@@ -130,86 +130,86 @@ export const ProductReceipts = () => {
   const openDetailDialog = async (invoice: Invoice) => {
     try {
       const full = await apiService.getInvoice(invoice.id);
-      const receipts = await apiService.getInvoiceReceipts(invoice.id);
+      const shipments = await apiService.getInvoiceShipments(invoice.id);
       setDetailViewInvoice(full);
-      setDetailReceipts(receipts);
+      setDetailShipments(shipments);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao abrir detalhes');
     }
   };
 
-  const handleDeleteReceipt = async (invoiceId: string, receiptId: string) => {
+  const handleDeleteShipment = async (invoiceId: string, shipmentId: string) => {
     try {
-      setDeletingReceiptId(receiptId);
-      await apiService.deleteInvoiceReceipt(invoiceId, receiptId);
-      const receipts = await apiService.getInvoiceReceipts(invoiceId);
-      setDetailReceipts(receipts);
+      setDeletingShipmentId(shipmentId);
+      await apiService.deleteInvoiceShipment(invoiceId, shipmentId);
+      const shipments = await apiService.getInvoiceShipments(invoiceId);
+      setDetailShipments(shipments);
       if (detailViewInvoice?.id === invoiceId) {
         const full = await apiService.getInvoice(invoiceId);
         setDetailViewInvoice(full);
       }
       await loadInvoices();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao excluir recebimento');
+      setError(err instanceof Error ? err.message : 'Falha ao excluir saída');
     } finally {
-      setDeletingReceiptId(null);
+      setDeletingShipmentId(null);
     }
   };
 
-  const openNewReceiptFromDetail = () => {
+  const openNewShipmentFromDetail = () => {
     if (detailViewInvoice) {
-      openReceiptModal(detailViewInvoice, true);
+      openShipmentModal(detailViewInvoice, true);
     }
   };
 
-  const handleCreateReceiptSuccess = async () => {
+  const handleCreateShipmentSuccess = async () => {
     if (detailInvoice && detailViewInvoice?.id === detailInvoice.id) {
-      const receipts = await apiService.getInvoiceReceipts(detailInvoice.id);
-      setDetailReceipts(receipts);
+      const shipments = await apiService.getInvoiceShipments(detailInvoice.id);
+      setDetailShipments(shipments);
       const full = await apiService.getInvoice(detailInvoice.id);
       setDetailViewInvoice(full);
     }
     await loadInvoices();
   };
 
-  const updateReceiptLineQty = (invoiceItemId: string, quantityReceived: number) => {
-    setReceiptForm((prev) => ({
+  const updateShipmentLineQty = (invoiceItemId: string, quantityShipped: number) => {
+    setShipmentForm((prev) => ({
       ...prev,
       items: prev.items.map((it) =>
-        it.invoiceItemId === invoiceItemId ? { ...it, quantityReceived } : it
+        it.invoiceItemId === invoiceItemId ? { ...it, quantityShipped } : it
       ),
     }));
   };
 
-  const updateReceiptLineDate = (
+  const updateShipmentLineDate = (
     invoiceItemId: string,
     useDefaultDate: boolean,
-    customReceiptDate?: string
+    customShipmentDate?: string
   ) => {
-    setReceiptForm((prev) => ({
+    setShipmentForm((prev) => ({
       ...prev,
       items: prev.items.map((it) =>
         it.invoiceItemId === invoiceItemId
-          ? { ...it, useDefaultDate, customReceiptDate }
+          ? { ...it, useDefaultDate, customShipmentDate }
           : it
       ),
     }));
   };
 
-  const handleCreateReceipt = async () => {
+  const handleCreateShipment = async () => {
     if (!detailInvoice) return;
     try {
-      setReceiptError(null);
-      const withQty = receiptForm.items.filter((i) => i.quantityReceived > 0);
+      setShipmentError(null);
+      const withQty = shipmentForm.items.filter((i) => i.quantityShipped > 0);
       if (withQty.length === 0) {
-        setReceiptError('Informe ao menos uma quantidade recebida.');
+        setShipmentError('Informe ao menos uma quantidade na saída.');
         return;
       }
-      const getEffectiveDate = (item: (typeof receiptForm.items)[0]): string => {
-        if (item.useDefaultDate) return receiptForm.receiptDate;
-        const custom = item.customReceiptDate?.slice(0, 10);
+      const getEffectiveDate = (item: (typeof shipmentForm.items)[0]): string => {
+        if (item.useDefaultDate) return shipmentForm.shipmentDate;
+        const custom = item.customShipmentDate?.slice(0, 10);
         if (custom) return custom;
-        return receiptForm.receiptDate;
+        return shipmentForm.shipmentDate;
       };
       const byDate = new Map<string, typeof withQty>();
       for (const item of withQty) {
@@ -217,26 +217,26 @@ export const ProductReceipts = () => {
         if (!byDate.has(date)) byDate.set(date, []);
         byDate.get(date)!.push(item);
       }
-      const notes = receiptForm.notes.trim() || undefined;
-      for (const [receiptDate, groupItems] of byDate) {
-        const payload: CreateInvoiceReceiptRequest = {
-          receiptDate,
+      const notes = shipmentForm.notes.trim() || undefined;
+      for (const [shipmentDate, groupItems] of byDate) {
+        const payload: CreateInvoiceShipmentRequest = {
+          shipmentDate,
           notes,
           items: groupItems.map((i) => ({
             invoiceItemId: i.invoiceItemId,
-            quantityReceived: i.quantityReceived,
+            quantityShipped: i.quantityShipped,
           })),
         };
-        await apiService.createInvoiceReceipt(detailInvoice.id, payload);
+        await apiService.createInvoiceShipment(detailInvoice.id, payload);
       }
       const full = await apiService.getInvoice(detailInvoice.id);
       setDetailInvoice(full);
-      const receipts = await apiService.getInvoiceReceipts(detailInvoice.id);
-      setInvoiceReceipts(receipts);
-      setIsReceiptModalOpen(false);
-      await handleCreateReceiptSuccess();
+      const shipments = await apiService.getInvoiceShipments(detailInvoice.id);
+      setInvoiceShipments(shipments);
+      setIsShipmentModalOpen(false);
+      await handleCreateShipmentSuccess();
     } catch (err) {
-      setReceiptError(err instanceof Error ? err.message : 'Falha ao registrar recebimento');
+      setShipmentError(err instanceof Error ? err.message : 'Falha ao registrar saída');
     }
   };
 
@@ -258,11 +258,11 @@ export const ProductReceipts = () => {
     <Layout>
       <div className="space-y-8">
         <div>
-          <h1 className="text-2xl font-bold">Recebimento de Produtos</h1>
+          <h1 className="text-2xl font-bold">Saída de Produtos</h1>
           <p className="text-muted-foreground">
             {filter === 'pending'
-              ? 'Notas fiscais de compra (despesas) com itens a receber no estoque. Clique em "Registrar recebimento" para dar entrada nos produtos.'
-              : 'Notas fiscais de compra que já possuem recebimentos. Clique em "Ver recebimentos" para editar ou excluir.'}
+              ? 'Notas fiscais de venda (receitas) com itens a entregar. Clique em "Registrar saída" para dar baixa no estoque (movimento tipo Venda).'
+              : 'Notas fiscais de venda que já possuem saídas. Clique em "Ver saídas" para editar ou excluir.'}
           </p>
         </div>
 
@@ -272,14 +272,14 @@ export const ProductReceipts = () => {
               <Label className="text-sm font-medium">Filtrar:</Label>
               <Select
                 value={filter}
-                onValueChange={(v) => setFilter(v as ReceiptFilter)}
+                onValueChange={(v) => setFilter(v as ShipmentFilter)}
               >
                 <SelectTrigger className="w-[200px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pending">A receber</SelectItem>
-                  <SelectItem value="with_receipts">Com recebimentos</SelectItem>
+                  <SelectItem value="pending">A entregar</SelectItem>
+                  <SelectItem value="with_shipments">Com saídas</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -294,8 +294,8 @@ export const ProductReceipts = () => {
             ) : invoices.length === 0 ? (
               <p className="text-muted-foreground">
                 {filter === 'pending'
-                  ? 'Nenhuma nota de compra com produtos a receber. Todas as notas com itens de estoque já foram totalmente recebidas.'
-                  : 'Nenhuma nota de compra com recebimentos registrados.'}
+                  ? 'Nenhuma nota de venda com produtos a entregar.'
+                  : 'Nenhuma nota com saídas registradas.'}
               </p>
             ) : (
               <div className="overflow-x-auto rounded-md border">
@@ -330,10 +330,10 @@ export const ProductReceipts = () => {
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => openReceiptModal(inv)}
+                              onClick={() => openShipmentModal(inv)}
                             >
                               <Package className="h-4 w-4 mr-1" />
-                              Registrar recebimento
+                              Registrar saída
                             </Button>
                           ) : (
                             <Button
@@ -343,7 +343,7 @@ export const ProductReceipts = () => {
                               onClick={() => openDetailDialog(inv)}
                             >
                               <ListChecks className="h-4 w-4 mr-1" />
-                              Ver recebimentos
+                              Ver saídas
                             </Button>
                           )}
                         </td>
@@ -356,14 +356,14 @@ export const ProductReceipts = () => {
           </CardContent>
         </Card>
 
-        {/* Detail dialog: list receipts and allow delete / new receipt */}
+        {/* Detail dialog: list shipments and allow delete / new shipment */}
         <Dialog
           open={detailViewInvoice !== null}
           onOpenChange={(open) => !open && setDetailViewInvoice(null)}
         >
           <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
             <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-              <DialogTitle>Recebimentos da nota</DialogTitle>
+              <DialogTitle>Saídas da nota</DialogTitle>
               <DialogDescription>
                 {detailViewInvoice && (
                   <>
@@ -375,24 +375,24 @@ export const ProductReceipts = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
-              {detailReceipts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhum recebimento registrado.</p>
+              {detailShipments.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma saída registrada.</p>
               ) : (
                 <ul className="space-y-3">
-                  {detailReceipts.map((rec) => (
+                  {detailShipments.map((sh) => (
                     <li
-                      key={rec.id}
+                      key={sh.id}
                       className="flex items-center justify-between gap-4 rounded-lg border p-3"
                     >
                       <div>
-                        <span className="font-medium">{formatDate(rec.receiptDate)}</span>
-                        {rec.notes && (
-                          <p className="text-xs text-muted-foreground mt-0.5">{rec.notes}</p>
+                        <span className="font-medium">{formatDate(sh.shipmentDate)}</span>
+                        {sh.notes && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{sh.notes}</p>
                         )}
                         <p className="text-xs text-muted-foreground">
-                          {rec.items.length} item(ns) •{' '}
-                          {rec.items
-                            .reduce((sum, i) => sum + i.quantityReceived, 0)
+                          {sh.items.length} item(ns) •{' '}
+                          {sh.items
+                            .reduce((sum, i) => sum + i.quantityShipped, 0)
                             .toLocaleString('pt-BR')}{' '}
                           un.
                         </p>
@@ -402,17 +402,17 @@ export const ProductReceipts = () => {
                         variant="ghost"
                         size="sm"
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        disabled={deletingReceiptId === rec.id}
+                        disabled={deletingShipmentId === sh.id}
                         onClick={() =>
                           detailViewInvoice &&
                           window.confirm(
-                            'Excluir este recebimento? O estoque será ajustado (saída).'
+                            'Excluir esta saída? O estoque será ajustado (entrada de ajuste).'
                           ) &&
-                          handleDeleteReceipt(detailViewInvoice.id, rec.id)
+                          handleDeleteShipment(detailViewInvoice.id, sh.id)
                         }
                       >
                         <Trash2 className="h-4 w-4 mr-1" />
-                        {deletingReceiptId === rec.id ? 'Excluindo...' : 'Excluir'}
+                        {deletingShipmentId === sh.id ? 'Excluindo...' : 'Excluir'}
                       </Button>
                     </li>
                   ))}
@@ -424,20 +424,20 @@ export const ProductReceipts = () => {
                 Fechar
               </Button>
               {detailViewInvoice && (
-                <Button onClick={openNewReceiptFromDetail}>
+                <Button onClick={openNewShipmentFromDetail}>
                   <Package className="h-4 w-4 mr-1" />
-                  Registrar novo recebimento
+                  Registrar nova saída
                 </Button>
               )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* Receipt Modal */}
-        <Dialog open={isReceiptModalOpen} onOpenChange={(open) => !open && setIsReceiptModalOpen(false)}>
+        {/* Shipment Modal */}
+        <Dialog open={isShipmentModalOpen} onOpenChange={(open) => !open && setIsShipmentModalOpen(false)}>
           <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
             <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-              <DialogTitle>Registrar recebimento</DialogTitle>
+              <DialogTitle>Registrar saída de produtos</DialogTitle>
               <DialogDescription>
                 {detailInvoice && (
                   <>
@@ -449,44 +449,44 @@ export const ProductReceipts = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
-              {receiptError && (
+              {shipmentError && (
                 <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
-                  {receiptError}
+                  {shipmentError}
                 </div>
               )}
               <div>
-                <Label>Data do recebimento (padrão para todos)</Label>
+                <Label>Data da saída (padrão para todos)</Label>
                 <Input
                   type="date"
-                  value={receiptForm.receiptDate}
-                  onChange={(e) => setReceiptForm((p) => ({ ...p, receiptDate: e.target.value }))}
+                  value={shipmentForm.shipmentDate}
+                  onChange={(e) => setShipmentForm((p) => ({ ...p, shipmentDate: e.target.value }))}
                   className="mt-1"
                 />
               </div>
               <div>
                 <Label>Observações (opcional)</Label>
                 <Input
-                  value={receiptForm.notes}
-                  onChange={(e) => setReceiptForm((p) => ({ ...p, notes: e.target.value }))}
+                  value={shipmentForm.notes}
+                  onChange={(e) => setShipmentForm((p) => ({ ...p, notes: e.target.value }))}
                   placeholder="Ex.: Entrega parcial"
                   className="mt-1"
                 />
               </div>
-              {receiptForm.items.some((i) => !i.useDefaultDate) && (
+              {shipmentForm.items.some((i) => !i.useDefaultDate) && (
                 <p className="text-xs text-muted-foreground">
-                  Itens com data diferente serão registrados em recebimentos separados.
+                  Itens com data diferente serão registrados em saídas separadas.
                 </p>
               )}
               <div>
-                <Label>Quantidades neste recebimento</Label>
+                <Label>Quantidades nesta saída</Label>
                 <div className="mt-2 space-y-2">
-                  {receiptForm.items.map((ri) => {
+                  {shipmentForm.items.map((ri) => {
                     const invItem = detailInvoice?.items.find((i) => i.id === ri.invoiceItemId);
                     if (!invItem) return null;
                     const ordered = invItem.quantity;
-                    const alreadyReceived =
-                      (invItem as { quantityReceivedTotal?: number }).quantityReceivedTotal ?? 0;
-                    const max = Math.max(0, ordered - alreadyReceived);
+                    const alreadyShipped =
+                      (invItem as { quantityShippedTotal?: number }).quantityShippedTotal ?? 0;
+                    const max = Math.max(0, ordered - alreadyShipped);
                     return (
                       <div key={ri.invoiceItemId} className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -494,16 +494,16 @@ export const ProductReceipts = () => {
                             {getItemName(invItem.itemId)}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            faturado: {ordered} {invItem.unit} • já recebido: {alreadyReceived}
+                            faturado: {ordered} {invItem.unit} • já entregue: {alreadyShipped}
                           </span>
                           <Input
                             type="number"
                             min={0}
                             max={max}
                             step="any"
-                            value={ri.quantityReceived || ''}
+                            value={ri.quantityShipped || ''}
                             onChange={(e) =>
-                              updateReceiptLineQty(
+                              updateShipmentLineQty(
                                 ri.invoiceItemId,
                                 parseFloat(e.target.value) || 0
                               )
@@ -520,7 +520,7 @@ export const ProductReceipts = () => {
                               variant="link"
                               className="h-auto p-0 text-xs text-muted-foreground"
                               onClick={() =>
-                                updateReceiptLineDate(ri.invoiceItemId, false, receiptForm.receiptDate)
+                                updateShipmentLineDate(ri.invoiceItemId, false, shipmentForm.shipmentDate)
                               }
                             >
                               Alterar data para este item
@@ -532,9 +532,9 @@ export const ProductReceipts = () => {
                               </Label>
                               <Input
                                 type="date"
-                                value={ri.customReceiptDate ?? receiptForm.receiptDate}
+                                value={ri.customShipmentDate ?? shipmentForm.shipmentDate}
                                 onChange={(e) =>
-                                  updateReceiptLineDate(ri.invoiceItemId, false, e.target.value)
+                                  updateShipmentLineDate(ri.invoiceItemId, false, e.target.value)
                                 }
                                 className="h-8 w-[140px]"
                               />
@@ -542,7 +542,7 @@ export const ProductReceipts = () => {
                                 type="button"
                                 variant="link"
                                 className="h-auto p-0 text-xs"
-                                onClick={() => updateReceiptLineDate(ri.invoiceItemId, true)}
+                                onClick={() => updateShipmentLineDate(ri.invoiceItemId, true)}
                               >
                                 Usar data padrão
                               </Button>
@@ -556,10 +556,10 @@ export const ProductReceipts = () => {
               </div>
             </div>
             <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-              <Button variant="outline" onClick={() => setIsReceiptModalOpen(false)}>
+              <Button variant="outline" onClick={() => setIsShipmentModalOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleCreateReceipt}>Registrar recebimento</Button>
+              <Button onClick={handleCreateShipment}>Registrar saída</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

@@ -322,6 +322,28 @@ export interface CreateInvoiceReceiptRequest {
   items: { invoiceItemId: string; quantityReceived: number }[];
 }
 
+export interface InvoiceShipmentItemDTO {
+  id: string;
+  invoiceItemId: string;
+  quantityShipped: number;
+}
+
+export interface InvoiceShipmentDTO {
+  id: string;
+  invoiceId: string;
+  shipmentDate: string;
+  notes?: string | null;
+  items: InvoiceShipmentItemDTO[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateInvoiceShipmentRequest {
+  shipmentDate: string;
+  notes?: string | null;
+  items: { invoiceItemId: string; quantityShipped: number }[];
+}
+
 export interface CreateInvoiceRequest {
   number: string;
   series?: string;
@@ -1197,10 +1219,17 @@ class ApiService {
   }
 
   // Invoice (Nota Fiscal) Management
-  async getInvoices(options?: { pendingReceipt?: boolean; withReceipts?: boolean }): Promise<Invoice[]> {
+  async getInvoices(options?: {
+    pendingReceipt?: boolean;
+    withReceipts?: boolean;
+    pendingShipment?: boolean;
+    withShipments?: boolean;
+  }): Promise<Invoice[]> {
     const params = new URLSearchParams();
     if (options?.pendingReceipt) params.set('pendingReceipt', 'true');
     if (options?.withReceipts) params.set('withReceipts', 'true');
+    if (options?.pendingShipment) params.set('pendingShipment', 'true');
+    if (options?.withShipments) params.set('withShipments', 'true');
     const url = params.toString() ? `${this.baseUrl}/api/invoices?${params}` : `${this.baseUrl}/api/invoices`;
     const response = await this.fetchWithRetry(url, {
       method: 'GET',
@@ -1280,6 +1309,39 @@ class ApiService {
   async deleteInvoiceReceipt(invoiceId: string, receiptId: string): Promise<void> {
     const response = await this.fetchWithRetry(
       `${this.baseUrl}/api/invoices/${invoiceId}/receipts/${receiptId}`,
+      {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+      }
+    );
+    await this.handleResponse<{ success: boolean }>(response);
+  }
+
+  async getInvoiceShipments(invoiceId: string): Promise<InvoiceShipmentDTO[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/invoices/${invoiceId}/shipments`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: InvoiceShipmentDTO[] }>(response);
+    return data.data;
+  }
+
+  async createInvoiceShipment(
+    invoiceId: string,
+    payload: CreateInvoiceShipmentRequest,
+  ): Promise<InvoiceShipmentDTO> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/invoices/${invoiceId}/shipments`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: InvoiceShipmentDTO }>(response);
+    return data.data;
+  }
+
+  async deleteInvoiceShipment(invoiceId: string, shipmentId: string): Promise<void> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/invoices/${invoiceId}/shipments/${shipmentId}`,
       {
         method: 'DELETE',
         headers: this.getAuthHeaders(),

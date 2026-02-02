@@ -26,8 +26,8 @@ import {
   UpdateInvoiceRequest,
   InvoiceItemDTO,
   InvoiceFinancialDTO,
-  InvoiceReceiptDTO,
-  CreateInvoiceReceiptRequest,
+  InvoiceShipmentDTO,
+  CreateInvoiceShipmentRequest,
   ItemType,
   Item,
   Supplier,
@@ -66,19 +66,19 @@ export const Revenues = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
-  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
-  const [receiptForm, setReceiptForm] = useState<{
-    receiptDate: string;
+  const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
+  const [shipmentForm, setShipmentForm] = useState<{
+    shipmentDate: string;
     notes: string;
     items: {
       invoiceItemId: string;
-      quantityReceived: number;
+      quantityShipped: number;
       useDefaultDate: boolean;
-      customReceiptDate?: string;
+      customShipmentDate?: string;
     }[];
-  }>({ receiptDate: '', notes: '', items: [] });
-  const [invoiceReceipts, setInvoiceReceipts] = useState<InvoiceReceiptDTO[]>([]);
-  const [receiptError, setReceiptError] = useState<string | null>(null);
+  }>({ shipmentDate: '', notes: '', items: [] });
+  const [invoiceShipments, setInvoiceShipments] = useState<InvoiceShipmentDTO[]>([]);
+  const [shipmentError, setShipmentError] = useState<string | null>(null);
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -482,66 +482,66 @@ export const Revenues = () => {
     setIsEditDialogOpen(true);
   };
 
-  const openReceiptModal = () => {
+  const openShipmentModal = () => {
     if (!detailInvoice) return;
     const stockItems = detailInvoice.items.filter((i) => (i as { goesToStock?: boolean }).goesToStock);
-    setReceiptForm({
-      receiptDate: detailInvoice.issueDate.slice(0, 10),
+    setShipmentForm({
+      shipmentDate: detailInvoice.issueDate.slice(0, 10),
       notes: '',
       items: stockItems.map((i) => {
         const ordered = i.quantity;
-        const alreadyReceived = (i as { quantityReceivedTotal?: number }).quantityReceivedTotal ?? 0;
-        const pending = Math.max(0, ordered - alreadyReceived);
+        const alreadyShipped = (i as { quantityShippedTotal?: number }).quantityShippedTotal ?? 0;
+        const pending = Math.max(0, ordered - alreadyShipped);
         return {
           invoiceItemId: i.id,
-          quantityReceived: pending,
+          quantityShipped: pending,
           useDefaultDate: true,
-          customReceiptDate: undefined,
+          customShipmentDate: undefined,
         };
       }),
     });
-    setReceiptError(null);
-    setIsReceiptModalOpen(true);
+    setShipmentError(null);
+    setIsShipmentModalOpen(true);
   };
 
-  const updateReceiptLineQty = (invoiceItemId: string, quantityReceived: number) => {
-    setReceiptForm((prev) => ({
+  const updateShipmentLineQty = (invoiceItemId: string, quantityShipped: number) => {
+    setShipmentForm((prev) => ({
       ...prev,
       items: prev.items.map((it) =>
-        it.invoiceItemId === invoiceItemId ? { ...it, quantityReceived } : it
+        it.invoiceItemId === invoiceItemId ? { ...it, quantityShipped } : it
       ),
     }));
   };
 
-  const updateReceiptLineDate = (
+  const updateShipmentLineDate = (
     invoiceItemId: string,
     useDefaultDate: boolean,
-    customReceiptDate?: string
+    customShipmentDate?: string
   ) => {
-    setReceiptForm((prev) => ({
+    setShipmentForm((prev) => ({
       ...prev,
       items: prev.items.map((it) =>
         it.invoiceItemId === invoiceItemId
-          ? { ...it, useDefaultDate, customReceiptDate }
+          ? { ...it, useDefaultDate, customShipmentDate }
           : it
       ),
     }));
   };
 
-  const handleCreateReceipt = async () => {
+  const handleCreateShipment = async () => {
     if (!detailInvoice) return;
     try {
-      setReceiptError(null);
-      const withQty = receiptForm.items.filter((i) => i.quantityReceived > 0);
+      setShipmentError(null);
+      const withQty = shipmentForm.items.filter((i) => i.quantityShipped > 0);
       if (withQty.length === 0) {
-        setReceiptError('Informe ao menos uma quantidade recebida.');
+        setShipmentError('Informe ao menos uma quantidade na saída.');
         return;
       }
-      const getEffectiveDate = (item: (typeof receiptForm.items)[0]): string => {
-        if (item.useDefaultDate) return receiptForm.receiptDate;
-        const custom = item.customReceiptDate?.slice(0, 10);
+      const getEffectiveDate = (item: (typeof shipmentForm.items)[0]): string => {
+        if (item.useDefaultDate) return shipmentForm.shipmentDate;
+        const custom = item.customShipmentDate?.slice(0, 10);
         if (custom) return custom;
-        return receiptForm.receiptDate;
+        return shipmentForm.shipmentDate;
       };
       const byDate = new Map<string, typeof withQty>();
       for (const item of withQty) {
@@ -549,25 +549,25 @@ export const Revenues = () => {
         if (!byDate.has(date)) byDate.set(date, []);
         byDate.get(date)!.push(item);
       }
-      const notes = receiptForm.notes.trim() || undefined;
-      for (const [receiptDate, groupItems] of byDate) {
-        const payload: CreateInvoiceReceiptRequest = {
-          receiptDate,
+      const notes = shipmentForm.notes.trim() || undefined;
+      for (const [shipmentDate, groupItems] of byDate) {
+        const payload: CreateInvoiceShipmentRequest = {
+          shipmentDate,
           notes,
           items: groupItems.map((i) => ({
             invoiceItemId: i.invoiceItemId,
-            quantityReceived: i.quantityReceived,
+            quantityShipped: i.quantityShipped,
           })),
         };
-        await apiService.createInvoiceReceipt(detailInvoice.id, payload);
+        await apiService.createInvoiceShipment(detailInvoice.id, payload);
       }
       const full = await apiService.getInvoice(detailInvoice.id);
       setDetailInvoice(full);
-      const receipts = await apiService.getInvoiceReceipts(detailInvoice.id);
-      setInvoiceReceipts(receipts);
-      setIsReceiptModalOpen(false);
+      const shipments = await apiService.getInvoiceShipments(detailInvoice.id);
+      setInvoiceShipments(shipments);
+      setIsShipmentModalOpen(false);
     } catch (err) {
-      setReceiptError(err instanceof Error ? err.message : 'Falha ao registrar recebimento');
+      setShipmentError(err instanceof Error ? err.message : 'Falha ao registrar saída');
     }
   };
 
@@ -733,8 +733,8 @@ export const Revenues = () => {
                                 try {
                                   const full = await apiService.getInvoice(inv.id);
                                   setDetailInvoice(full);
-                                  const receipts = await apiService.getInvoiceReceipts(inv.id);
-                                  setInvoiceReceipts(receipts);
+                                  const shipments = await apiService.getInvoiceShipments(inv.id);
+                                  setInvoiceShipments(shipments);
                                 } catch (e) {
                                   console.error(e);
                                 }
@@ -1427,8 +1427,8 @@ export const Revenues = () => {
                 {detailInvoice && getSupplierName(detailInvoice.supplierId)}
               </DialogDescription>
               {detailInvoice && detailInvoice.items.some((i) => (i as { goesToStock?: boolean }).goesToStock) && (
-                <Button type="button" variant="outline" size="sm" className="mt-2 w-fit" onClick={openReceiptModal}>
-                  <Package className="h-4 w-4 mr-1" /> Registrar recebimento
+                <Button type="button" variant="outline" size="sm" className="mt-2 w-fit" onClick={openShipmentModal}>
+                  <Package className="h-4 w-4 mr-1" /> Registrar saída de produtos
                 </Button>
               )}
             </DialogHeader>
@@ -1441,7 +1441,7 @@ export const Revenues = () => {
                     {detailInvoice.items?.length ? (
                       detailInvoice.items.map((line) => {
                         const goesToStock = (line as { goesToStock?: boolean }).goesToStock;
-                        const received = (line as { quantityReceivedTotal?: number }).quantityReceivedTotal ?? 0;
+                        const shipped = (line as { quantityShippedTotal?: number }).quantityShippedTotal ?? 0;
                         return (
                           <div
                             key={line.id}
@@ -1452,7 +1452,7 @@ export const Revenues = () => {
                               {goesToStock && (
                                 <span className="block text-xs text-muted-foreground mt-0.5">
                                   Faturado: {line.quantity} {line.unit}
-                                  {received > 0 && ` • Recebido: ${received} ${line.unit}`}
+                                  {shipped > 0 && ` • Entregue: ${shipped} ${line.unit}`}
                                 </span>
                               )}
                             </span>
@@ -1511,20 +1511,20 @@ export const Revenues = () => {
                     </p>
                   )}
                 </div>
-                {invoiceReceipts.length > 0 && (
+                {invoiceShipments.length > 0 && (
                   <div>
-                    <Label className="text-sm font-medium">Recebimentos</Label>
+                    <Label className="text-sm font-medium">Saídas de produtos</Label>
                     <div className="mt-2 border rounded divide-y text-sm">
-                      {invoiceReceipts.map((rec) => (
-                        <div key={rec.id} className="px-3 py-2">
-                          <span className="font-medium">{formatDate(rec.receiptDate)}</span>
-                          {rec.notes && <span className="text-muted-foreground ml-2">— {rec.notes}</span>}
+                      {invoiceShipments.map((sh) => (
+                        <div key={sh.id} className="px-3 py-2">
+                          <span className="font-medium">{formatDate(sh.shipmentDate)}</span>
+                          {sh.notes && <span className="text-muted-foreground ml-2">— {sh.notes}</span>}
                           <ul className="mt-1 ml-2 text-muted-foreground list-disc list-inside">
-                            {rec.items.map((ri) => {
-                              const invItem = detailInvoice.items.find((i) => i.id === ri.invoiceItemId);
+                            {sh.items.map((si) => {
+                              const invItem = detailInvoice.items.find((i) => i.id === si.invoiceItemId);
                               return (
-                                <li key={ri.id}>
-                                  {invItem ? getItemName(invItem.itemId) : ri.invoiceItemId}: {ri.quantityReceived}{' '}
+                                <li key={si.id}>
+                                  {invItem ? getItemName(invItem.itemId) : si.invoiceItemId}: {si.quantityShipped}{' '}
                                   {invItem?.unit ?? ''}
                                 </li>
                               );
@@ -1541,66 +1541,66 @@ export const Revenues = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Receipt (Registrar recebimento) Modal */}
-        <Dialog open={isReceiptModalOpen} onOpenChange={(open) => !open && setIsReceiptModalOpen(false)}>
+        {/* Saída de produtos Modal */}
+        <Dialog open={isShipmentModalOpen} onOpenChange={(open) => !open && setIsShipmentModalOpen(false)}>
           <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
             <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-              <DialogTitle>Registrar recebimento</DialogTitle>
+              <DialogTitle>Registrar saída de produtos</DialogTitle>
               <DialogDescription>
-                Informe a data e as quantidades recebidas por item (apenas itens que vão para estoque).
+                Informe a data e as quantidades entregues por item (apenas itens que vão para estoque). O movimento de estoque será registrado como Venda.
               </DialogDescription>
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
-              {receiptError && (
-                <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">{receiptError}</div>
+              {shipmentError && (
+                <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">{shipmentError}</div>
               )}
               <div>
-                <Label>Data do recebimento (padrão para todos)</Label>
+                <Label>Data da saída (padrão para todos)</Label>
                 <Input
                   type="date"
-                  value={receiptForm.receiptDate}
-                  onChange={(e) => setReceiptForm((p) => ({ ...p, receiptDate: e.target.value }))}
+                  value={shipmentForm.shipmentDate}
+                  onChange={(e) => setShipmentForm((p) => ({ ...p, shipmentDate: e.target.value }))}
                   className="mt-1"
                 />
               </div>
               <div>
                 <Label>Observações (opcional)</Label>
                 <Input
-                  value={receiptForm.notes}
-                  onChange={(e) => setReceiptForm((p) => ({ ...p, notes: e.target.value }))}
+                  value={shipmentForm.notes}
+                  onChange={(e) => setShipmentForm((p) => ({ ...p, notes: e.target.value }))}
                   placeholder="Ex.: Entrega parcial"
                   className="mt-1"
                 />
               </div>
-              {receiptForm.items.some((i) => !i.useDefaultDate) && (
+              {shipmentForm.items.some((i) => !i.useDefaultDate) && (
                 <p className="text-xs text-muted-foreground">
-                  Itens com data diferente serão registrados em recebimentos separados.
+                  Itens com data diferente serão registrados em saídas separadas.
                 </p>
               )}
               <div>
-                <Label>Quantidades neste recebimento</Label>
+                <Label>Quantidades nesta saída</Label>
                 <div className="mt-2 space-y-2">
-                  {receiptForm.items.map((ri) => {
+                  {shipmentForm.items.map((ri) => {
                     const invItem = detailInvoice?.items.find((i) => i.id === ri.invoiceItemId);
                     if (!invItem) return null;
                     const ordered = invItem.quantity;
-                    const alreadyReceived = (invItem as { quantityReceivedTotal?: number }).quantityReceivedTotal ?? 0;
-                    const max = Math.max(0, ordered - alreadyReceived);
+                    const alreadyShipped = (invItem as { quantityShippedTotal?: number }).quantityShippedTotal ?? 0;
+                    const max = Math.max(0, ordered - alreadyShipped);
                     return (
                       <div key={ri.invoiceItemId} className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="min-w-[140px] text-sm">{getItemName(invItem.itemId)}</span>
                           <span className="text-xs text-muted-foreground">
-                            faturado: {ordered} {invItem.unit} • já recebido: {alreadyReceived}
+                            faturado: {ordered} {invItem.unit} • já entregue: {alreadyShipped}
                           </span>
                           <Input
                             type="number"
                             min={0}
                             max={max}
                             step="any"
-                            value={ri.quantityReceived || ''}
+                            value={ri.quantityShipped || ''}
                             onChange={(e) =>
-                              updateReceiptLineQty(ri.invoiceItemId, parseFloat(e.target.value) || 0)
+                              updateShipmentLineQty(ri.invoiceItemId, parseFloat(e.target.value) || 0)
                             }
                             placeholder="0"
                             className="w-24 h-8"
@@ -1614,7 +1614,7 @@ export const Revenues = () => {
                               variant="link"
                               className="h-auto p-0 text-xs text-muted-foreground"
                               onClick={() =>
-                                updateReceiptLineDate(ri.invoiceItemId, false, receiptForm.receiptDate)
+                                updateShipmentLineDate(ri.invoiceItemId, false, shipmentForm.shipmentDate)
                               }
                             >
                               Alterar data para este item
@@ -1626,9 +1626,9 @@ export const Revenues = () => {
                               </Label>
                               <Input
                                 type="date"
-                                value={ri.customReceiptDate ?? receiptForm.receiptDate}
+                                value={ri.customShipmentDate ?? shipmentForm.shipmentDate}
                                 onChange={(e) =>
-                                  updateReceiptLineDate(ri.invoiceItemId, false, e.target.value)
+                                  updateShipmentLineDate(ri.invoiceItemId, false, e.target.value)
                                 }
                                 className="h-8 w-[140px]"
                               />
@@ -1636,7 +1636,7 @@ export const Revenues = () => {
                                 type="button"
                                 variant="link"
                                 className="h-auto p-0 text-xs"
-                                onClick={() => updateReceiptLineDate(ri.invoiceItemId, true)}
+                                onClick={() => updateShipmentLineDate(ri.invoiceItemId, true)}
                               >
                                 Usar data padrão
                               </Button>
@@ -1650,10 +1650,10 @@ export const Revenues = () => {
               </div>
             </div>
             <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-              <Button variant="outline" onClick={() => setIsReceiptModalOpen(false)}>
+              <Button variant="outline" onClick={() => setIsShipmentModalOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleCreateReceipt}>Registrar recebimento</Button>
+              <Button onClick={handleCreateShipment}>Registrar saída</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
