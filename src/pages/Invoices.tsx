@@ -28,6 +28,7 @@ import {
   Supplier,
   InvoiceType,
   DocumentType,
+  UnitOfMeasure,
   CreatePersonRequest,
   PersonType,
   PersonRole,
@@ -58,6 +59,7 @@ export const Invoices = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
+  const [unitOfMeasures, setUnitOfMeasures] = useState<UnitOfMeasure[]>([]);
 
   const [formData, setFormData] = useState<CreateInvoiceRequest>({ ...defaultForm });
   
@@ -108,14 +110,16 @@ export const Invoices = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        const [suppliersRes, itemsRes, documentTypesRes] = await Promise.all([
+        const [suppliersRes, itemsRes, documentTypesRes, unitOfMeasuresRes] = await Promise.all([
           apiService.getSuppliers(),
           apiService.getItems(),
           apiService.getDocumentTypes(),
+          apiService.getUnitOfMeasures(),
         ]);
         setSuppliers(suppliersRes);
         setItems(itemsRes);
         setDocumentTypes(documentTypesRes);
+        setUnitOfMeasures(unitOfMeasuresRes.filter((u) => u.isActive));
       } catch (err) {
         console.error('Failed to load lookups', err);
       }
@@ -235,7 +239,11 @@ export const Invoices = () => {
       if (field === 'itemId' && typeof value === 'string') {
         const product = items.find((p) => p.id === value);
         if (product) {
-          lines[index].unit = product.unit ?? lines[index].unit;
+          const productUnit = (product.unit ?? '').trim();
+          const unitCode =
+            productUnit &&
+            unitOfMeasures.find((u) => u.code.toLowerCase() === productUnit.toLowerCase())?.code;
+          lines[index].unit = unitCode ?? product.unit ?? lines[index].unit ?? '';
           lines[index].unitPrice = product.price ?? 0;
           lines[index].itemType = product.type as ItemType;
         }
@@ -433,8 +441,13 @@ export const Invoices = () => {
   const onItemSelect = (index: number, itemId: string) => {
     const product = items.find((p) => p.id === itemId);
     if (product) {
+      const productUnit = (product.unit ?? '').trim();
+      const unitCode =
+        productUnit &&
+        unitOfMeasures.find((u) => u.code.toLowerCase() === productUnit.toLowerCase())?.code;
+      const resolvedUnit = unitCode ?? product.unit ?? '';
       updateItemLine(index, 'itemId', itemId);
-      updateItemLine(index, 'unit', product.unit ?? '');
+      updateItemLine(index, 'unit', resolvedUnit);
       updateItemLine(index, 'unitPrice', product.price ?? 0);
       updateItemLine(index, 'itemType', product.type as ItemType);
     }
@@ -459,10 +472,14 @@ export const Invoices = () => {
       setItemFormError('Nome é obrigatório');
       return;
     }
+    if (!itemForm.unit?.trim()) {
+      setItemFormError('Unidade de medida é obrigatória');
+      return;
+    }
 
     try {
       setItemFormError(null);
-      const newItem = await apiService.createItem(itemForm);
+      const newItem = await apiService.createItem({ ...itemForm, unit: itemForm.unit.trim() });
       
       // Recarregar itens
       const itemsRes = await apiService.getItems();
@@ -743,10 +760,21 @@ export const Invoices = () => {
                         </div>
                         <div className="col-span-1">
                           <Label className="text-xs">Unidade</Label>
-                          <Input
-                            value={line.unit}
-                            onChange={(e) => updateItemLine(index, 'unit', e.target.value)}
-                          />
+                          <Select
+                            value={line.unit || ''}
+                            onValueChange={(value) => updateItemLine(index, 'unit', value)}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Un." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {unitOfMeasures.map((u) => (
+                                <SelectItem key={u.id} value={u.code}>
+                                  {u.code} - {u.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="col-span-2">
                           <Label className="text-xs">Preço unit.</Label>
@@ -980,10 +1008,21 @@ export const Invoices = () => {
                     </div>
                     <div className="col-span-1">
                       <Label className="text-xs">Unidade</Label>
-                      <Input
-                        value={line.unit}
-                        onChange={(e) => updateItemLine(index, 'unit', e.target.value)}
-                      />
+                      <Select
+                        value={line.unit || ''}
+                        onValueChange={(value) => updateItemLine(index, 'unit', value)}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Un." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {unitOfMeasures.map((u) => (
+                            <SelectItem key={u.id} value={u.code}>
+                              {u.code} - {u.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="col-span-2">
                       <Label className="text-xs">Preço unit.</Label>
@@ -1348,13 +1387,22 @@ export const Invoices = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="item-unit">Unidade</Label>
-                  <Input
-                    id="item-unit"
+                  <Label htmlFor="item-unit">Unidade de medida *</Label>
+                  <Select
                     value={itemForm.unit || ''}
-                    onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })}
-                    placeholder="ex: kg, un, h"
-                  />
+                    onValueChange={(value) => setItemForm({ ...itemForm, unit: value })}
+                  >
+                    <SelectTrigger id="item-unit">
+                      <SelectValue placeholder="Selecione a unidade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unitOfMeasures.map((u) => (
+                        <SelectItem key={u.id} value={u.code}>
+                          {u.code} - {u.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>

@@ -103,6 +103,10 @@ export const Products = () => {
       fieldErrors.name = 'Nome é obrigatório';
     }
 
+    if (!formData.unit?.trim()) {
+      fieldErrors.unit = 'Unidade de medida é obrigatória';
+    }
+
     if (activeTab === ItemType.PRODUCT && formData.isStockControlled) {
       if (!formData.initialStockDate) {
         fieldErrors.initialStockDate = 'Data é obrigatória';
@@ -112,9 +116,6 @@ export const Products = () => {
       }
       if (formData.price === undefined || formData.price === null) {
         fieldErrors.price = 'Preço é obrigatório';
-      }
-      if (!formData.unit?.trim()) {
-        fieldErrors.unit = 'Unidade de medida é obrigatória';
       }
     }
 
@@ -456,45 +457,30 @@ export const Products = () => {
                   placeholder="Produto ou serviço"
                 />
               </div>
-              {isProduct ? (
-                <div className="space-y-2">
-                  <Label htmlFor="unit">Unidade de medida</Label>
-                  <Select
-                    value={formData.unit || ''}
-                    onValueChange={(value) => {
-                      setFormData({ ...formData, unit: value });
-                      if (fieldErrors.unit) setFieldErrors((prev) => ({ ...prev, unit: '' }));
-                    }}
-                  >
-                    <SelectTrigger id="unit" className={fieldErrors.unit ? 'border-destructive' : ''}>
-                      <SelectValue placeholder="Selecione a unidade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {unitOfMeasures.map((u) => (
-                        <SelectItem key={u.id} value={u.code}>
-                          {u.name} ({u.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldErrors.unit && (
-                    <p className="text-xs text-destructive">{fieldErrors.unit}</p>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="unit">Unit</Label>
-                  <Input
-                    id="unit"
-                    placeholder="hora, visita, etc."
-                    value={formData.unit}
-                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Preço só é informado para produto estocável.
-                  </p>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="unit">Unidade de medida *</Label>
+                <Select
+                  value={formData.unit || ''}
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, unit: value });
+                    if (fieldErrors.unit) setFieldErrors((prev) => ({ ...prev, unit: '' }));
+                  }}
+                >
+                  <SelectTrigger id="unit" className={fieldErrors.unit ? 'border-destructive' : ''}>
+                    <SelectValue placeholder="Selecione a unidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {unitOfMeasures.map((u) => (
+                      <SelectItem key={u.id} value={u.code}>
+                        {u.name} ({u.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {fieldErrors.unit && (
+                  <p className="text-xs text-destructive">{fieldErrors.unit}</p>
+                )}
+              </div>
 
               {/* Stock Control Section - Only for Products */}
               {isProduct && (
@@ -673,45 +659,30 @@ export const Products = () => {
                   placeholder="Produto ou serviço"
                 />
               </div>
-              {isProduct ? (
-                <div className="space-y-2">
-                  <Label htmlFor="edit-unit">Unidade de medida</Label>
-                  <Select
-                    value={formData.unit || ''}
-                    onValueChange={(value) => {
-                      setFormData({ ...formData, unit: value });
-                      if (fieldErrors.unit) setFieldErrors((prev) => ({ ...prev, unit: '' }));
-                    }}
-                  >
-                    <SelectTrigger id="edit-unit" className={fieldErrors.unit ? 'border-destructive' : ''}>
-                      <SelectValue placeholder="Selecione a unidade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {unitOfMeasures.map((u) => (
-                        <SelectItem key={u.id} value={u.code}>
-                          {u.name} ({u.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldErrors.unit && (
-                    <p className="text-xs text-destructive">{fieldErrors.unit}</p>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="edit-unit">Unit</Label>
-                  <Input
-                    id="edit-unit"
-                    placeholder="hora, visita, etc."
-                    value={formData.unit}
-                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Preço só é informado para produto estocável.
-                  </p>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="edit-unit">Unidade de medida *</Label>
+                <Select
+                  value={formData.unit || ''}
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, unit: value });
+                    if (fieldErrors.unit) setFieldErrors((prev) => ({ ...prev, unit: '' }));
+                  }}
+                >
+                  <SelectTrigger id="edit-unit" className={fieldErrors.unit ? 'border-destructive' : ''}>
+                    <SelectValue placeholder="Selecione a unidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {unitOfMeasures.map((u) => (
+                      <SelectItem key={u.id} value={u.code}>
+                        {u.name} ({u.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {fieldErrors.unit && (
+                  <p className="text-xs text-destructive">{fieldErrors.unit}</p>
+                )}
+              </div>
 
               {/* Stock Control Section - Only for Products */}
               {isProduct && (

@@ -218,7 +218,8 @@ export interface CreateItemRequest {
   description?: string;
   type: ItemType;
   price?: number;
-  unit?: string;
+  /** Código da unidade de medida (obrigatório). */
+  unit: string;
   // Product-specific fields
   sku?: string;
   isStockControlled?: boolean;
