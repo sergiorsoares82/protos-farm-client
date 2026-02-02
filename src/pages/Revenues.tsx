@@ -11,7 +11,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
+import { formatCurrency } from '@/lib/utils';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { AutocompleteWithCreate } from '@/components/ui/autocomplete-with-create';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -68,7 +70,12 @@ export const Revenues = () => {
   const [receiptForm, setReceiptForm] = useState<{
     receiptDate: string;
     notes: string;
-    items: { invoiceItemId: string; quantityReceived: number }[];
+    items: {
+      invoiceItemId: string;
+      quantityReceived: number;
+      useDefaultDate: boolean;
+      customReceiptDate?: string;
+    }[];
   }>({ receiptDate: '', notes: '', items: [] });
   const [invoiceReceipts, setInvoiceReceipts] = useState<InvoiceReceiptDTO[]>([]);
   const [receiptError, setReceiptError] = useState<string | null>(null);
@@ -479,12 +486,19 @@ export const Revenues = () => {
     if (!detailInvoice) return;
     const stockItems = detailInvoice.items.filter((i) => (i as { goesToStock?: boolean }).goesToStock);
     setReceiptForm({
-      receiptDate: new Date().toISOString().slice(0, 10),
+      receiptDate: detailInvoice.issueDate.slice(0, 10),
       notes: '',
-      items: stockItems.map((i) => ({
-        invoiceItemId: i.id,
-        quantityReceived: 0,
-      })),
+      items: stockItems.map((i) => {
+        const ordered = i.quantity;
+        const alreadyReceived = (i as { quantityReceivedTotal?: number }).quantityReceivedTotal ?? 0;
+        const pending = Math.max(0, ordered - alreadyReceived);
+        return {
+          invoiceItemId: i.id,
+          quantityReceived: pending,
+          useDefaultDate: true,
+          customReceiptDate: undefined,
+        };
+      }),
     });
     setReceiptError(null);
     setIsReceiptModalOpen(true);
@@ -499,20 +513,54 @@ export const Revenues = () => {
     }));
   };
 
+  const updateReceiptLineDate = (
+    invoiceItemId: string,
+    useDefaultDate: boolean,
+    customReceiptDate?: string
+  ) => {
+    setReceiptForm((prev) => ({
+      ...prev,
+      items: prev.items.map((it) =>
+        it.invoiceItemId === invoiceItemId
+          ? { ...it, useDefaultDate, customReceiptDate }
+          : it
+      ),
+    }));
+  };
+
   const handleCreateReceipt = async () => {
     if (!detailInvoice) return;
     try {
       setReceiptError(null);
-      const payload: CreateInvoiceReceiptRequest = {
-        receiptDate: receiptForm.receiptDate,
-        notes: receiptForm.notes.trim() || undefined,
-        items: receiptForm.items.filter((i) => i.quantityReceived > 0),
-      };
-      if (payload.items.length === 0) {
+      const withQty = receiptForm.items.filter((i) => i.quantityReceived > 0);
+      if (withQty.length === 0) {
         setReceiptError('Informe ao menos uma quantidade recebida.');
         return;
       }
-      await apiService.createInvoiceReceipt(detailInvoice.id, payload);
+      const getEffectiveDate = (item: (typeof receiptForm.items)[0]): string => {
+        if (item.useDefaultDate) return receiptForm.receiptDate;
+        const custom = item.customReceiptDate?.slice(0, 10);
+        if (custom) return custom;
+        return receiptForm.receiptDate;
+      };
+      const byDate = new Map<string, typeof withQty>();
+      for (const item of withQty) {
+        const date = getEffectiveDate(item);
+        if (!byDate.has(date)) byDate.set(date, []);
+        byDate.get(date)!.push(item);
+      }
+      const notes = receiptForm.notes.trim() || undefined;
+      for (const [receiptDate, groupItems] of byDate) {
+        const payload: CreateInvoiceReceiptRequest = {
+          receiptDate,
+          notes,
+          items: groupItems.map((i) => ({
+            invoiceItemId: i.invoiceItemId,
+            quantityReceived: i.quantityReceived,
+          })),
+        };
+        await apiService.createInvoiceReceipt(detailInvoice.id, payload);
+      }
       const full = await apiService.getInvoice(detailInvoice.id);
       setDetailInvoice(full);
       const receipts = await apiService.getInvoiceReceipts(detailInvoice.id);
@@ -671,7 +719,7 @@ export const Revenues = () => {
                         <td className="px-4 py-3">{inv.items?.length ?? 0}</td>
                         <td className="px-4 py-3">
                           {inv.itemsTotal != null
-                            ? `R$ ${Number(inv.itemsTotal).toFixed(2)}`
+                            ? formatCurrency(Number(inv.itemsTotal))
                             : '—'}
                         </td>
                         <td className="px-4 py-3">{inv.financials?.length ?? 0}</td>
@@ -888,29 +936,20 @@ export const Revenues = () => {
                         </div>
                         <div className="flex flex-col gap-1.5">
                           <Label className="text-xs block text-left">Preço unit.</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
+                          <DecimalInput
                             placeholder="0,00"
                             className="h-9 px-2"
-                            value={line.unitPrice === 0 ? '' : line.unitPrice}
-                            onChange={(e) =>
-                              updateItemLine(index, 'unitPrice', parseFloat(e.target.value) || 0)
-                            }
+                            value={line.unitPrice}
+                            onChange={(v) => updateItemLine(index, 'unitPrice', v)}
                           />
                         </div>
                         <div className="flex flex-col gap-1.5">
                           <Label className="text-xs block text-left">Total</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
+                          <DecimalInput
                             placeholder="0,00"
                             className="h-9 px-2"
-                            value={line.quantity && line.unitPrice ? (line.quantity * line.unitPrice) : ''}
-                            onChange={(e) => {
-                              const total = parseFloat(e.target.value) || 0;
+                            value={line.quantity && line.unitPrice ? line.quantity * line.unitPrice : 0}
+                            onChange={(total) => {
                               const qty = line.quantity > 0 ? line.quantity : 1;
                               updateItemLine(index, 'unitPrice', total / qty);
                             }}
@@ -1029,14 +1068,9 @@ export const Revenues = () => {
                         </div>
                         <div className="col-span-4">
                           <Label className="text-xs">Valor (R$)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
+                          <DecimalInput
                             value={fin.amount}
-                            onChange={(e) =>
-                              updateFinancialLine(index, 'amount', parseFloat(e.target.value) || 0)
-                            }
+                            onChange={(v) => updateFinancialLine(index, 'amount', v)}
                           />
                         </div>
                         <div className="col-span-3" />
@@ -1216,29 +1250,20 @@ export const Revenues = () => {
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <Label className="text-xs block text-left">Preço unit.</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
+                      <DecimalInput
                         placeholder="0,00"
                         className="h-9 px-2"
-                        value={line.unitPrice === 0 ? '' : line.unitPrice}
-                        onChange={(e) =>
-                          updateItemLine(index, 'unitPrice', parseFloat(e.target.value) || 0)
-                        }
+                        value={line.unitPrice}
+                        onChange={(v) => updateItemLine(index, 'unitPrice', v)}
                       />
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <Label className="text-xs block text-left">Total</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
+                      <DecimalInput
                         placeholder="0,00"
                         className="h-9 px-2"
-                        value={line.quantity && line.unitPrice ? (line.quantity * line.unitPrice) : ''}
-                        onChange={(e) => {
-                          const total = parseFloat(e.target.value) || 0;
+                        value={line.quantity && line.unitPrice ? line.quantity * line.unitPrice : 0}
+                        onChange={(total) => {
                           const qty = line.quantity > 0 ? line.quantity : 1;
                           updateItemLine(index, 'unitPrice', total / qty);
                         }}
@@ -1358,14 +1383,9 @@ export const Revenues = () => {
                     </div>
                     <div className="col-span-4">
                       <Label className="text-xs">Valor (R$)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
+                      <DecimalInput
                         value={fin.amount}
-                        onChange={(e) =>
-                          updateFinancialLine(index, 'amount', parseFloat(e.target.value) || 0)
-                        }
+                        onChange={(v) => updateFinancialLine(index, 'amount', v)}
                       />
                     </div>
                     <div className="col-span-3" />
@@ -1437,8 +1457,8 @@ export const Revenues = () => {
                               )}
                             </span>
                             <span>
-                              {line.quantity} {line.unit} × R$ {Number(line.unitPrice).toFixed(2)} = R${' '}
-                              {(line.totalPrice ?? line.quantity * line.unitPrice).toFixed(2)}
+                              {line.quantity} {line.unit} × {formatCurrency(Number(line.unitPrice))} ={' '}
+                              {formatCurrency(line.totalPrice ?? line.quantity * line.unitPrice)}
                             </span>
                           </div>
                         );
@@ -1449,7 +1469,7 @@ export const Revenues = () => {
                   </div>
                   {detailInvoice.itemsTotal != null && (
                     <p className="text-right font-medium mt-2">
-                      Total itens: R$ {Number(detailInvoice.itemsTotal).toFixed(2)}
+                      Total itens: {formatCurrency(Number(detailInvoice.itemsTotal))}
                     </p>
                   )}
                 </div>
@@ -1463,7 +1483,7 @@ export const Revenues = () => {
                           className="flex justify-between items-center px-3 py-2"
                         >
                           <span>
-                            Vencimento: {formatDate(fin.dueDate)} • R$ {Number(fin.amount).toFixed(2)}{' '}
+                            Vencimento: {formatDate(fin.dueDate)} • {formatCurrency(Number(fin.amount))}{' '}
                             {fin.status === 'PAID' ? (
                               <span className="text-green-600">(Pago)</span>
                             ) : (
@@ -1487,7 +1507,7 @@ export const Revenues = () => {
                   </div>
                   {detailInvoice.financialsTotal != null && (
                     <p className="text-right font-medium mt-2">
-                      Total parcelas: R$ {Number(detailInvoice.financialsTotal).toFixed(2)}
+                      Total parcelas: {formatCurrency(Number(detailInvoice.financialsTotal))}
                     </p>
                   )}
                 </div>
@@ -1535,7 +1555,7 @@ export const Revenues = () => {
                 <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">{receiptError}</div>
               )}
               <div>
-                <Label>Data do recebimento</Label>
+                <Label>Data do recebimento (padrão para todos)</Label>
                 <Input
                   type="date"
                   value={receiptForm.receiptDate}
@@ -1552,6 +1572,11 @@ export const Revenues = () => {
                   className="mt-1"
                 />
               </div>
+              {receiptForm.items.some((i) => !i.useDefaultDate) && (
+                <p className="text-xs text-muted-foreground">
+                  Itens com data diferente serão registrados em recebimentos separados.
+                </p>
+              )}
               <div>
                 <Label>Quantidades neste recebimento</Label>
                 <div className="mt-2 space-y-2">
@@ -1562,24 +1587,62 @@ export const Revenues = () => {
                     const alreadyReceived = (invItem as { quantityReceivedTotal?: number }).quantityReceivedTotal ?? 0;
                     const max = Math.max(0, ordered - alreadyReceived);
                     return (
-                      <div key={ri.invoiceItemId} className="flex items-center gap-2 flex-wrap">
-                        <span className="min-w-[140px] text-sm">{getItemName(invItem.itemId)}</span>
-                        <span className="text-xs text-muted-foreground">
-                          faturado: {ordered} {invItem.unit} • já recebido: {alreadyReceived}
-                        </span>
-                        <Input
-                          type="number"
-                          min={0}
-                          max={max}
-                          step="any"
-                          value={ri.quantityReceived || ''}
-                          onChange={(e) =>
-                            updateReceiptLineQty(ri.invoiceItemId, parseFloat(e.target.value) || 0)
-                          }
-                          placeholder="0"
-                          className="w-24 h-8"
-                        />
-                        <span className="text-xs text-muted-foreground">{invItem.unit}</span>
+                      <div key={ri.invoiceItemId} className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="min-w-[140px] text-sm">{getItemName(invItem.itemId)}</span>
+                          <span className="text-xs text-muted-foreground">
+                            faturado: {ordered} {invItem.unit} • já recebido: {alreadyReceived}
+                          </span>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={max}
+                            step="any"
+                            value={ri.quantityReceived || ''}
+                            onChange={(e) =>
+                              updateReceiptLineQty(ri.invoiceItemId, parseFloat(e.target.value) || 0)
+                            }
+                            placeholder="0"
+                            className="w-24 h-8"
+                          />
+                          <span className="text-xs text-muted-foreground">{invItem.unit}</span>
+                        </div>
+                        <div className="flex items-center gap-2 pl-0">
+                          {ri.useDefaultDate ? (
+                            <Button
+                              type="button"
+                              variant="link"
+                              className="h-auto p-0 text-xs text-muted-foreground"
+                              onClick={() =>
+                                updateReceiptLineDate(ri.invoiceItemId, false, receiptForm.receiptDate)
+                              }
+                            >
+                              Alterar data para este item
+                            </Button>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Label className="text-xs text-muted-foreground">
+                                Data específica para este item (opcional):
+                              </Label>
+                              <Input
+                                type="date"
+                                value={ri.customReceiptDate ?? receiptForm.receiptDate}
+                                onChange={(e) =>
+                                  updateReceiptLineDate(ri.invoiceItemId, false, e.target.value)
+                                }
+                                className="h-8 w-[140px]"
+                              />
+                              <Button
+                                type="button"
+                                variant="link"
+                                className="h-auto p-0 text-xs"
+                                onClick={() => updateReceiptLineDate(ri.invoiceItemId, true)}
+                              >
+                                Usar data padrão
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -1773,13 +1836,10 @@ export const Revenues = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="item-price">Preço</Label>
-                <Input
+                <DecimalInput
                   id="item-price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={itemForm.price ?? ''}
-                  onChange={(e) => setItemForm({ ...itemForm, price: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  value={itemForm.price ?? undefined}
+                  onChange={(v) => setItemForm({ ...itemForm, price: v })}
                   placeholder="0,00"
                 />
               </div>

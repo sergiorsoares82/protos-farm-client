@@ -20,6 +20,7 @@ import { Seasons } from '@/pages/Seasons';
 import { StockMovements } from '@/pages/StockMovements';
 import { Invoices } from '@/pages/Invoices';
 import { Revenues } from '@/pages/Revenues';
+import { ProductReceipts } from '@/pages/ProductReceipts';
 import { MachineTypes } from '@/pages/MachineTypes';
 import { Machines } from '@/pages/Machines';
 import { Assets } from '@/pages/Assets';
@@ -153,6 +154,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Invoices />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/product-receipts"
+            element={
+              <ProtectedRoute>
+                <ProductReceipts />
               </ProtectedRoute>
             }
           />

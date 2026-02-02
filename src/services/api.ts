@@ -269,6 +269,8 @@ export interface InvoiceItemDTO {
   managementAccountId?: string | null;
   seasonId?: string | null;
   goesToStock?: boolean;
+  /** Se true, ao salvar recebe o produto no estoque (quantidade da nota, data de emissão) */
+  received?: boolean;
 }
 
 export interface InvoiceFinancialDTO {
@@ -1195,8 +1197,12 @@ class ApiService {
   }
 
   // Invoice (Nota Fiscal) Management
-  async getInvoices(): Promise<Invoice[]> {
-    const response = await this.fetchWithRetry(`${this.baseUrl}/api/invoices`, {
+  async getInvoices(options?: { pendingReceipt?: boolean; withReceipts?: boolean }): Promise<Invoice[]> {
+    const params = new URLSearchParams();
+    if (options?.pendingReceipt) params.set('pendingReceipt', 'true');
+    if (options?.withReceipts) params.set('withReceipts', 'true');
+    const url = params.toString() ? `${this.baseUrl}/api/invoices?${params}` : `${this.baseUrl}/api/invoices`;
+    const response = await this.fetchWithRetry(url, {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -1269,6 +1275,17 @@ class ApiService {
     });
     const data = await this.handleResponse<{ success: boolean; data: InvoiceReceiptDTO }>(response);
     return data.data;
+  }
+
+  async deleteInvoiceReceipt(invoiceId: string, receiptId: string): Promise<void> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/invoices/${invoiceId}/receipts/${receiptId}`,
+      {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+      }
+    );
+    await this.handleResponse<{ success: boolean }>(response);
   }
 
   async getSuppliers(): Promise<Supplier[]> {

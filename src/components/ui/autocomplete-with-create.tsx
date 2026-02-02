@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import * as ReactDOM from "react-dom"
 import { Input } from "./input"
 import { Button } from "./button"
 import { Plus, ChevronsUpDown, Check } from "lucide-react"
@@ -44,6 +45,7 @@ export const AutocompleteWithCreate = React.forwardRef<HTMLInputElement, Autocom
     const inputRef = React.useRef<HTMLInputElement>(null)
     const dropdownRef = React.useRef<HTMLDivElement>(null)
     const justSelectedRef = React.useRef(false)
+    const [dropdownPosition, setDropdownPosition] = React.useState<{ top: number; left: number; width: number } | null>(null)
 
     const selectedOption = options.find((opt) => opt.value === value)
 
@@ -63,6 +65,20 @@ export const AutocompleteWithCreate = React.forwardRef<HTMLInputElement, Autocom
     React.useEffect(() => {
       onDropdownOpenChange?.(isOpen)
     }, [isOpen, onDropdownOpenChange])
+
+    // Posicionar o dropdown via portal quando abrir (evita clipping por overflow do Dialog)
+    React.useLayoutEffect(() => {
+      if (!isOpen || !containerRef.current) {
+        setDropdownPosition(null)
+        return
+      }
+      const rect = containerRef.current.getBoundingClientRect()
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      })
+    }, [isOpen, searchTerm, filteredOptions.length])
 
     // Só sincroniza o texto quando o dropdown está fechado; quando aberto deixa o usuário editar
     React.useEffect(() => {
@@ -168,52 +184,65 @@ export const AutocompleteWithCreate = React.forwardRef<HTMLInputElement, Autocom
               className="pr-8"
             />
             <ChevronsUpDown className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            {isOpen &&
-              (filteredOptions.length > 0 ? (
-                <div
-                  ref={dropdownRef}
-                  className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-auto rounded-md border border-input bg-popover shadow-md"
-                >
-                  {filteredOptions.map((option, index) => (
-                    <div
-                      key={option.value}
-                      role="option"
-                      data-option-value={option.value}
-                      aria-selected={option.value === value}
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        handleSelect(option)
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        handleSelect(option)
-                      }}
-                      className={cn(
-                        "flex cursor-pointer items-center px-3 py-2 text-sm",
-                        "hover:bg-accent hover:text-accent-foreground",
-                        index === highlightedIndex && "bg-accent text-accent-foreground",
-                        option.value === value && "bg-accent/50"
-                      )}
-                    >
-                      {option.value === value && (
-                        <Check className="mr-2 h-4 w-4 text-primary" />
-                      )}
-                      <span className={cn(option.value === value && "font-medium")}>
-                        {option.label}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : searchTerm.trim() && !showCreateButton ? (
-                <div
-                  ref={dropdownRef}
-                  className="absolute left-0 right-0 top-full z-50 mt-1 rounded-md border border-input bg-popover shadow-md"
-                >
-                  <div className="px-3 py-2 text-sm text-muted-foreground">
-                    {emptyMessage}
+            {isOpen && dropdownPosition && typeof document !== "undefined" &&
+              ReactDOM.createPortal(
+                filteredOptions.length > 0 ? (
+                  <div
+                    ref={dropdownRef}
+                    className="fixed z-[9999] max-h-60 overflow-auto rounded-md border border-input bg-popover shadow-md pointer-events-auto"
+                    style={{
+                      top: dropdownPosition.top,
+                      left: dropdownPosition.left,
+                      width: dropdownPosition.width,
+                    }}
+                  >
+                    {filteredOptions.map((option, index) => (
+                      <div
+                        key={option.value}
+                        role="option"
+                        data-option-value={option.value}
+                        aria-selected={option.value === value}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          handleSelect(option)
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handleSelect(option)
+                        }}
+                        className={cn(
+                          "flex cursor-pointer items-center px-3 py-2 text-sm",
+                          "hover:bg-accent hover:text-accent-foreground",
+                          index === highlightedIndex && "bg-accent text-accent-foreground",
+                          option.value === value && "bg-accent/50"
+                        )}
+                      >
+                        {option.value === value && (
+                          <Check className="mr-2 h-4 w-4 text-primary" />
+                        )}
+                        <span className={cn(option.value === value && "font-medium")}>
+                          {option.label}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ) : null)}
+                ) : searchTerm.trim() && !showCreateButton ? (
+                  <div
+                    ref={dropdownRef}
+                    className="fixed z-[9999] rounded-md border border-input bg-popover shadow-md pointer-events-auto"
+                    style={{
+                      top: dropdownPosition.top,
+                      left: dropdownPosition.left,
+                      width: dropdownPosition.width,
+                    }}
+                  >
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      {emptyMessage}
+                    </div>
+                  </div>
+                ) : null,
+                document.body
+              )}
           </div>
           {showCreateButton && (
             <Button

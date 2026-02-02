@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatNumber } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -293,7 +294,7 @@ export const Fields = () => {
                   <CardDescription>
                     {item.name}
                     {item.areaHectares != null && item.areaHectares > 0 && (
-                      <> • {Number(item.areaHectares).toFixed(2)} ha</>
+                      <> • {formatNumber(Number(item.areaHectares), 2)} ha</>
                     )}
                     {item.costCenterId && (
                       <> • {costCenterLabel(item.costCenterId)}</>

@@ -22,7 +22,9 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
+import { formatNumber } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Package, Plus, Pencil, Trash2, AlertCircle, Wrench } from 'lucide-react';
 import { apiService, Item, ItemType, CreateItemRequest, UpdateItemRequest, UnitOfMeasure } from '@/services/api';
@@ -350,7 +352,7 @@ export const Products = () => {
                   <div className="space-y-2 text-sm">
                     {item.price && (
                       <div>
-                        <span className="font-semibold">Price:</span> ${item.price}
+                        <span className="font-semibold">Price:</span> {formatNumber(item.price)}
                         {item.unit && ` / ${item.unit}`}
                       </div>
                     )}
@@ -548,15 +550,12 @@ export const Products = () => {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="price">Preço *</Label>
-                          <Input
+                          <DecimalInput
                             id="price"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.price ?? ''}
+                            value={formData.price}
                             className={fieldErrors.price ? 'border-destructive' : ''}
-                            onChange={(e) => {
-                              setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : undefined });
+                            onChange={(v) => {
+                              setFormData({ ...formData, price: v });
                               if (fieldErrors.price) setFieldErrors((prev) => ({ ...prev, price: '' }));
                             }}
                           />
@@ -566,13 +565,10 @@ export const Products = () => {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="minStockLevel">Mín. no estoque</Label>
-                          <Input
+                          <DecimalInput
                             id="minStockLevel"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.minStockLevel ?? ''}
-                            onChange={(e) => setFormData({ ...formData, minStockLevel: e.target.value ? parseFloat(e.target.value) : undefined })}
+                            value={formData.minStockLevel ?? undefined}
+                            onChange={(v) => setFormData({ ...formData, minStockLevel: v })}
                           />
                         </div>
                       </div>
@@ -750,15 +746,12 @@ export const Products = () => {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="edit-price">Preço *</Label>
-                          <Input
+                          <DecimalInput
                             id="edit-price"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.price ?? ''}
+                            value={formData.price}
                             className={fieldErrors.price ? 'border-destructive' : ''}
-                            onChange={(e) => {
-                              setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : undefined });
+                            onChange={(v) => {
+                              setFormData({ ...formData, price: v });
                               if (fieldErrors.price) setFieldErrors((prev) => ({ ...prev, price: '' }));
                             }}
                           />
@@ -768,13 +761,10 @@ export const Products = () => {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="edit-minStockLevel">Mín. no estoque</Label>
-                          <Input
+                          <DecimalInput
                             id="edit-minStockLevel"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.minStockLevel ?? ''}
-                            onChange={(e) => setFormData({ ...formData, minStockLevel: e.target.value ? parseFloat(e.target.value) : undefined })}
+                            value={formData.minStockLevel ?? undefined}
+                            onChange={(v) => setFormData({ ...formData, minStockLevel: v })}
                           />
                         </div>
                       </div>
