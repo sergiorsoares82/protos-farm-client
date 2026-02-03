@@ -1348,7 +1348,7 @@ export const Revenues = () => {
                 {(formData.items ?? []).map((line, index) => (
                   <div
                     key={index}
-                    className="grid grid-cols-[minmax(140px,2fr)_56px_70px_80px_80px_minmax(100px,1fr)_minmax(100px,1fr)_minmax(80px,1fr)_40px_36px] gap-x-2 gap-y-1.5 border rounded p-2 bg-muted/30 mb-2 items-end"
+                    className="grid grid-cols-[minmax(140px,2fr)_56px_70px_80px_80px_minmax(100px,1fr)_minmax(100px,1fr)_minmax(80px,1fr)_40px_56px_36px] gap-x-2 gap-y-1.5 border rounded p-2 bg-muted/30 mb-2 items-end"
                   >
                     <div className="min-w-0 flex flex-col gap-1.5">
                       <Label className="text-xs block text-left">Produto/Serviço</Label>
@@ -1417,17 +1417,6 @@ export const Revenues = () => {
                           updateItemLine(index, 'unitPrice', total / qty);
                         }}
                       />
-                    </div>
-                    <div className="flex flex-col justify-end">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-500 shrink-0"
-                        onClick={() => removeItemLine(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                     </div>
                     <div className="min-w-0 flex flex-col gap-1.5">
                       <Label className="text-xs block text-left">Centro custo</Label>
