@@ -469,6 +469,28 @@ export interface UpdateWorkLocationTypeRequest {
   isActive?: boolean;
 }
 
+// Invoice financial (payment) type – Super admin can edit system types; Org admin can view system and create org types
+export interface InvoiceFinancialsType {
+  id: string;
+  tenantId: string | null;
+  name: string;
+  isSystem: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateInvoiceFinancialsTypeRequest {
+  name: string;
+  /** Super admin only: null = system type, uuid = for that org. Omit for current tenant. */
+  tenantId?: string | null;
+}
+
+export interface UpdateInvoiceFinancialsTypeRequest {
+  name?: string;
+  isActive?: boolean;
+}
+
 // Unit of measure (unidade de medida: system + per-org; SuperAdmin/OrgAdmin)
 export interface UnitOfMeasure {
   id: string;
@@ -789,6 +811,34 @@ export interface UpdateManagementAccountRequest {
   description?: string;
   type?: AccountType;
   categoryIds?: string[];
+  isActive?: boolean;
+}
+
+// Bank Account Types
+export interface BankAccount {
+  id: string;
+  tenantId: string;
+  name: string;
+  bankName: string | null;
+  agency: string | null;
+  accountNumber: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBankAccountRequest {
+  name: string;
+  bankName?: string | null;
+  agency?: string | null;
+  accountNumber?: string | null;
+}
+
+export interface UpdateBankAccountRequest {
+  name?: string;
+  bankName?: string | null;
+  agency?: string | null;
+  accountNumber?: string | null;
   isActive?: boolean;
 }
 
@@ -1528,6 +1578,44 @@ class ApiService {
     await this.handleResponse<void>(response);
   }
 
+  // Invoice financial (payment) types – Super admin can edit system; Org admin can view system and create org types
+  async getInvoiceFinancialsTypes(): Promise<InvoiceFinancialsType[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/invoice-financials-types`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<InvoiceFinancialsType[]>(response);
+  }
+
+  async createInvoiceFinancialsType(data: CreateInvoiceFinancialsTypeRequest): Promise<InvoiceFinancialsType> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/invoice-financials-types`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<InvoiceFinancialsType>(response);
+  }
+
+  async updateInvoiceFinancialsType(
+    id: string,
+    data: UpdateInvoiceFinancialsTypeRequest,
+  ): Promise<InvoiceFinancialsType> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/invoice-financials-types/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<InvoiceFinancialsType>(response);
+  }
+
+  async deleteInvoiceFinancialsType(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/invoice-financials-types/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    await this.handleResponse<void>(response);
+  }
+
   // Unit of measure (unidade de medida)
   async getUnitOfMeasures(): Promise<UnitOfMeasure[]> {
     const response = await this.fetchWithRetry(`${this.baseUrl}/api/unit-of-measures`, {
@@ -1949,7 +2037,48 @@ class ApiService {
     await this.handleResponse<void>(response);
   }
 
-  // Note: Management Accounts are no longer linked to Cost Center Types.
+  // Bank accounts (contas bancárias)
+  async getBankAccounts(): Promise<BankAccount[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/bank-accounts`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<BankAccount[]>(response);
+  }
+
+  async getBankAccount(id: string): Promise<BankAccount> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/bank-accounts/${id}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<BankAccount>(response);
+  }
+
+  async createBankAccount(data: CreateBankAccountRequest): Promise<BankAccount> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/bank-accounts`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<BankAccount>(response);
+  }
+
+  async updateBankAccount(id: string, data: UpdateBankAccountRequest): Promise<BankAccount> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/bank-accounts/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<BankAccount>(response);
+  }
+
+  async deleteBankAccount(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/bank-accounts/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    await this.handleResponse<void>(response);
+  }
 }
 
 export const apiService = new ApiService(API_BASE_URL);

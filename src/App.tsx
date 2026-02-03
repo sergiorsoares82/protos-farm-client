@@ -11,6 +11,7 @@ import { Users } from '@/pages/Users';
 import { UsersSimple } from '@/pages/UsersSimple';
 import { CostCenters } from '@/pages/CostCenters';
 import { ManagementAccounts } from '@/pages/ManagementAccounts';
+import { BankAccounts } from '@/pages/BankAccounts';
 import { CostCenterCategories } from '@/pages/CostCenterCategories';
 import { Fields } from '@/pages/Fields';
 import { WorkLocationTypes } from '@/pages/WorkLocationTypes';
@@ -19,6 +20,7 @@ import { UnitOfMeasureConversions } from '@/pages/UnitOfMeasureConversions';
 import { Seasons } from '@/pages/Seasons';
 import { StockMovements } from '@/pages/StockMovements';
 import { Invoices } from '@/pages/Invoices';
+import { InvoiceFinancialsTypes } from '@/pages/InvoiceFinancialsTypes';
 import { Revenues } from '@/pages/Revenues';
 import { ProductReceipts } from '@/pages/ProductReceipts';
 import { ProductShipments } from '@/pages/ProductShipments';
@@ -95,6 +97,14 @@ function App() {
             }
           />
           <Route
+            path="/bank-accounts"
+            element={
+              <ProtectedRoute>
+                <BankAccounts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/cost-center-categories"
             element={
               <ProtectedRoute>
@@ -155,6 +165,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Invoices />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/invoice-financials-types"
+            element={
+              <ProtectedRoute>
+                <InvoiceFinancialsTypes />
               </ProtectedRoute>
             }
           />
