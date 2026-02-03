@@ -89,6 +89,10 @@ export const Revenues = () => {
   const [seasons, setSeasons] = useState<Season[]>([]);
 
   const [formData, setFormData] = useState<CreateInvoiceRequest>({ ...defaultForm });
+  const [showUnshipConfirm, setShowUnshipConfirm] = useState(false);
+  const [pendingUpdatePayload, setPendingUpdatePayload] = useState<UpdateInvoiceRequest | null>(null);
+  const [pendingUnshipCount, setPendingUnshipCount] = useState(0);
+  const [isProcessingUnship, setIsProcessingUnship] = useState(false);
   
   // Modal de novo fornecedor
   const [showSupplierModal, setShowSupplierModal] = useState(false);
@@ -389,6 +393,10 @@ export const Revenues = () => {
     }
     try {
       setError(null);
+
+      // Itens que passarão a ter saída imediata (antes não iam para estoque e agora vão com "Entregue" marcado)
+      const newAutoShipmentIndexes: number[] = [];
+
       const payload: UpdateInvoiceRequest = {
         number: formData.number.trim(),
         series: formData.series?.trim() || undefined,
@@ -397,32 +405,139 @@ export const Revenues = () => {
         documentTypeId: formData.documentTypeId?.trim() || undefined,
         notes: formData.notes?.trim() || undefined,
         type: InvoiceType.RECEITA,
-        items: formData.items!.map((it, i) => ({
-          itemId: it.itemId,
-          itemType: it.itemType,
-          quantity: it.quantity,
-          unit: it.unit.trim(),
-          unitPrice: it.unitPrice,
-          lineOrder: i,
-          description: it.description?.trim() || undefined,
-          costCenterId: it.costCenterId?.trim() || undefined,
-          managementAccountId: it.managementAccountId?.trim() || undefined,
-          seasonId: it.seasonId?.trim() || undefined,
-          goesToStock: it.goesToStock ?? false,
-        })),
+        items: formData.items!.map((it, i) => {
+          const orig = selectedInvoice.items[i] as
+            | (typeof selectedInvoice.items)[number]
+            | undefined;
+          const goesToStockOrig = (orig as { goesToStock?: boolean } | undefined)?.goesToStock ?? false;
+          const goesToStockNow = it.goesToStock ?? false;
+          const shippedNow = it.shipped ?? false;
+
+          if (!goesToStockOrig && goesToStockNow && shippedNow) {
+            newAutoShipmentIndexes.push(i);
+          }
+
+          return {
+            itemId: it.itemId,
+            itemType: it.itemType,
+            quantity: it.quantity,
+            unit: it.unit.trim(),
+            unitPrice: it.unitPrice,
+            lineOrder: i,
+            description: it.description?.trim() || undefined,
+            costCenterId: it.costCenterId?.trim() || undefined,
+            managementAccountId: it.managementAccountId?.trim() || undefined,
+            seasonId: it.seasonId?.trim() || undefined,
+            goesToStock: goesToStockNow,
+            shipped: shippedNow,
+          };
+        }),
         financials: formData.financials!.map((f) => ({
           dueDate: f.dueDate,
           amount: f.amount,
           paidAt: f.paidAt || undefined,
         })),
       };
-      await apiService.updateInvoice(selectedInvoice.id, payload);
+
+      // Verificar se houve itens que tinham saída e foram desmarcados como "Entregue"
+      let hadShipmentCount = 0;
+      let unshipCount = 0;
+      selectedInvoice.items.forEach((orig, index) => {
+        const formItem = formData.items?.[index];
+        if (!formItem) return;
+        const goesToStockOrig = (orig as { goesToStock?: boolean }).goesToStock ?? false;
+        const quantityShippedTotal =
+          (orig as { quantityShippedTotal?: number }).quantityShippedTotal ?? 0;
+        const hadShipment = goesToStockOrig && quantityShippedTotal > 0;
+        if (!hadShipment) return;
+        hadShipmentCount++;
+        const nowShipped = (formItem.goesToStock ?? false) && (formItem.shipped ?? false);
+        if (!nowShipped) {
+          unshipCount++;
+        }
+      });
+
+      if (unshipCount > 0) {
+        // Se o usuário tentou "desfazer entrega" apenas de alguns itens, bloquear e instruir usar tela específica
+        if (hadShipmentCount > 0 && unshipCount < hadShipmentCount) {
+          setError(
+            'Para remover saídas de apenas alguns itens, utilize a tela "Saída de Produtos".'
+          );
+          return;
+        }
+
+        // Todos os itens que tinham saída foram desmarcados: pedir confirmação
+        setPendingUpdatePayload(payload);
+        setPendingUnshipCount(unshipCount);
+        setShowUnshipConfirm(true);
+        return;
+      }
+
+      // Nenhuma alteração de "Entregue" que exija confirmação: salva normalmente
+      const updated = await apiService.updateInvoice(selectedInvoice.id, payload);
+
+      // Se algum item passou a ir para estoque com "Entregue" marcado, lançar saída automática
+      if (newAutoShipmentIndexes.length > 0) {
+        const autoItems = newAutoShipmentIndexes
+          .map((idx) => updated.items[idx])
+          .filter((it) => it && it.id)
+          .map((it) => ({
+            invoiceItemId: it.id,
+            quantityShipped: it.quantity,
+          }));
+
+        if (autoItems.length > 0) {
+          const shipmentPayload: CreateInvoiceShipmentRequest = {
+            shipmentDate: formData.issueDate,
+            notes: 'Saída automática ao marcar estoque/entregue na edição da receita.',
+            items: autoItems,
+          };
+          await apiService.createInvoiceShipment(updated.id, shipmentPayload);
+        }
+      }
+
       setIsEditDialogOpen(false);
       setSelectedInvoice(null);
       resetForm();
       await loadInvoices();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao atualizar receita');
+    }
+  };
+
+  const handleConfirmUnshipAndSave = async () => {
+    if (!selectedInvoice || !pendingUpdatePayload) {
+      setShowUnshipConfirm(false);
+      setPendingUpdatePayload(null);
+      return;
+    }
+    try {
+      setIsProcessingUnship(true);
+      setError(null);
+
+      // Remover todos os registros de saída desta nota (movimentos de estoque de saída/venda)
+      const shipments = await apiService.getInvoiceShipments(selectedInvoice.id);
+      for (const sh of shipments) {
+        await apiService.deleteInvoiceShipment(selectedInvoice.id, sh.id);
+      }
+
+      // Agora salvar a edição da receita
+      await apiService.updateInvoice(selectedInvoice.id, pendingUpdatePayload);
+      setIsEditDialogOpen(false);
+      setSelectedInvoice(null);
+      resetForm();
+      await loadInvoices();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Falha ao remover saídas de produtos e atualizar receita'
+      );
+    } finally {
+      setIsProcessingUnship(false);
+      setShowUnshipConfirm(false);
+      setPendingUpdatePayload(null);
+      setPendingUnshipCount(0);
     }
   };
 
@@ -450,36 +565,50 @@ export const Revenues = () => {
     }
   };
 
-  const openEditDialog = (inv: Invoice) => {
-    setSelectedInvoice(inv);
-    setFormData({
-      number: inv.number,
-      series: inv.series ?? '',
-      issueDate: inv.issueDate.slice(0, 10),
-      supplierId: inv.supplierId,
-      documentTypeId: inv.documentTypeId ?? '',
-      notes: inv.notes ?? '',
-      type: InvoiceType.RECEITA,
-      items: inv.items.map((it, i) => ({
-        itemId: it.itemId,
-        itemType: it.itemType as ItemType,
-        quantity: it.quantity,
-        unit: it.unit,
-        unitPrice: it.unitPrice,
-        lineOrder: i,
-        description: it.description,
-        costCenterId: (it as { costCenterId?: string | null }).costCenterId ?? undefined,
-        managementAccountId: (it as { managementAccountId?: string | null }).managementAccountId ?? undefined,
-        seasonId: (it as { seasonId?: string | null }).seasonId ?? undefined,
-        goesToStock: (it as { goesToStock?: boolean }).goesToStock ?? false,
-      })),
-      financials: inv.financials.map((f) => ({
-        dueDate: f.dueDate.slice(0, 10),
-        amount: f.amount,
-        paidAt: f.paidAt?.slice(0, 10),
-      })),
-    });
-    setIsEditDialogOpen(true);
+  const openEditDialog = async (inv: Invoice) => {
+    try {
+      setError(null);
+      const full = await apiService.getInvoice(inv.id);
+      setSelectedInvoice(full);
+      setFormData({
+        number: full.number,
+        series: full.series ?? '',
+        issueDate: full.issueDate.slice(0, 10),
+        supplierId: full.supplierId,
+        documentTypeId: full.documentTypeId ?? '',
+        notes: full.notes ?? '',
+        type: InvoiceType.RECEITA,
+        items: full.items.map((it, i) => {
+          const goesToStock = (it as { goesToStock?: boolean }).goesToStock ?? false;
+          const quantityShippedTotal =
+            (it as { quantityShippedTotal?: number }).quantityShippedTotal ?? 0;
+
+          return {
+            itemId: it.itemId,
+            itemType: it.itemType as ItemType,
+            quantity: it.quantity,
+            unit: it.unit,
+            unitPrice: it.unitPrice,
+            lineOrder: i,
+            description: it.description,
+            costCenterId: (it as { costCenterId?: string | null }).costCenterId ?? undefined,
+            managementAccountId: (it as { managementAccountId?: string | null }).managementAccountId ?? undefined,
+            seasonId: (it as { seasonId?: string | null }).seasonId ?? undefined,
+            goesToStock,
+            // Se já houve saída (mesmo parcial), marcar como entregue ao carregar
+            shipped: goesToStock && quantityShippedTotal > 0,
+          };
+        }),
+        financials: full.financials.map((f) => ({
+          dueDate: f.dueDate.slice(0, 10),
+          amount: f.amount,
+          paidAt: f.paidAt?.slice(0, 10),
+        })),
+      });
+      setIsEditDialogOpen(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao carregar receita para edição');
+    }
   };
 
   const openShipmentModal = () => {
@@ -1016,8 +1145,28 @@ export const Revenues = () => {
                           <Label className="text-xs block text-left">Estoque</Label>
                           <Checkbox
                             checked={line.goesToStock ?? false}
-                            onCheckedChange={(checked) => updateItemLine(index, 'goesToStock', checked === true)}
+                            disabled={line.shipped === true}
+                            onCheckedChange={(checked) => {
+                              const value = checked === true;
+                              updateItemLine(index, 'goesToStock', value);
+                              if (!value && line.shipped) {
+                                updateItemLine(index, 'shipped', false);
+                              }
+                            }}
                           />
+                        </div>
+                        <div className="flex flex-col gap-1.5 justify-end">
+                          <Label className="text-xs block text-left">Entregue</Label>
+                          {line.goesToStock ? (
+                            <Checkbox
+                              checked={line.shipped ?? false}
+                              onCheckedChange={(checked) =>
+                                updateItemLine(index, 'shipped', checked === true)
+                              }
+                            />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
                         </div>
                         <div className="flex flex-col justify-end">
                           <Button
@@ -1341,8 +1490,28 @@ export const Revenues = () => {
                       <Label className="text-xs block text-left">Estoque</Label>
                       <Checkbox
                         checked={line.goesToStock ?? false}
-                        onCheckedChange={(checked) => updateItemLine(index, 'goesToStock', checked === true)}
+                        disabled={line.shipped === true}
+                        onCheckedChange={(checked) => {
+                          const value = checked === true;
+                          updateItemLine(index, 'goesToStock', value);
+                          if (!value && line.shipped) {
+                            updateItemLine(index, 'shipped', false);
+                          }
+                        }}
                       />
+                    </div>
+                    <div className="flex flex-col gap-1.5 justify-end">
+                      <Label className="text-xs block text-left">Entregue</Label>
+                      {line.goesToStock ? (
+                        <Checkbox
+                          checked={line.shipped ?? false}
+                          onCheckedChange={(checked) =>
+                            updateItemLine(index, 'shipped', checked === true)
+                          }
+                        />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </div>
                     <div className="flex flex-col justify-end">
                       <Button
@@ -1410,6 +1579,59 @@ export const Revenues = () => {
                 Cancelar
               </Button>
               <Button onClick={handleEdit}>Salvar alterações</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Confirmação para remover saídas de produtos ao desmarcar "Entregue" na edição */}
+        <Dialog
+          open={showUnshipConfirm}
+          onOpenChange={(open) => {
+            if (!open && !isProcessingUnship) {
+              setShowUnshipConfirm(false);
+              setPendingUpdatePayload(null);
+              setPendingUnshipCount(0);
+            }
+          }}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Remover saídas de produtos desta receita?</DialogTitle>
+              <DialogDescription>
+                {pendingUnshipCount > 1
+                  ? `Você desmarcou a entrega de ${pendingUnshipCount} itens que já tinham saída registrada no estoque.`
+                  : 'Você desmarcou a entrega de um item que já tinha saída registrada no estoque.'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 text-sm">
+              <p>
+                Se confirmar, todos os registros de saída desta nota serão removidos e o estoque será
+                ajustado (entrada dos produtos que haviam sido baixados como venda).
+              </p>
+              <p className="font-medium">Essa operação não pode ser desfeita automaticamente.</p>
+            </div>
+            <DialogFooter className="mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isProcessingUnship}
+                onClick={() => {
+                  if (isProcessingUnship) return;
+                  setShowUnshipConfirm(false);
+                  setPendingUpdatePayload(null);
+                  setPendingUnshipCount(0);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleConfirmUnshipAndSave}
+                disabled={isProcessingUnship}
+              >
+                {isProcessingUnship ? 'Processando...' : 'Remover saídas e salvar'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

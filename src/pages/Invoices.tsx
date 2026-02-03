@@ -89,6 +89,10 @@ export const Invoices = () => {
   const [seasons, setSeasons] = useState<Season[]>([]);
 
   const [formData, setFormData] = useState<CreateInvoiceRequest>({ ...defaultForm });
+  const [showUnreceiveConfirm, setShowUnreceiveConfirm] = useState(false);
+  const [pendingUpdatePayload, setPendingUpdatePayload] = useState<UpdateInvoiceRequest | null>(null);
+  const [pendingUnreceiveCount, setPendingUnreceiveCount] = useState(0);
+  const [isProcessingUnreceive, setIsProcessingUnreceive] = useState(false);
   
   // Modal de novo fornecedor
   const [showSupplierModal, setShowSupplierModal] = useState(false);
@@ -391,6 +395,10 @@ export const Invoices = () => {
     }
     try {
       setError(null);
+
+      // Itens que passarão a ter recebimento imediato (antes não iam para estoque e agora vão com "Recebido" marcado)
+      const newAutoReceiveIndexes: number[] = [];
+
       const payload: UpdateInvoiceRequest = {
         number: formData.number.trim(),
         series: formData.series?.trim() || undefined,
@@ -399,33 +407,139 @@ export const Invoices = () => {
         documentTypeId: formData.documentTypeId?.trim() || undefined,
         notes: formData.notes?.trim() || undefined,
         type: InvoiceType.DESPESA,
-        items: formData.items!.map((it, i) => ({
-          itemId: it.itemId,
-          itemType: it.itemType,
-          quantity: it.quantity,
-          unit: it.unit.trim(),
-          unitPrice: it.unitPrice,
-          lineOrder: i,
-          description: it.description?.trim() || undefined,
-          costCenterId: it.costCenterId?.trim() || undefined,
-          managementAccountId: it.managementAccountId?.trim() || undefined,
-          seasonId: it.seasonId?.trim() || undefined,
-          goesToStock: it.goesToStock ?? false,
-          received: it.received ?? false,
-        })),
+        items: formData.items!.map((it, i) => {
+          const orig = selectedInvoice.items[i] as
+            | (typeof selectedInvoice.items)[number]
+            | undefined;
+          const goesToStockOrig = (orig as { goesToStock?: boolean } | undefined)?.goesToStock ?? false;
+          const goesToStockNow = it.goesToStock ?? false;
+          const receivedNow = it.received ?? false;
+
+          if (!goesToStockOrig && goesToStockNow && receivedNow) {
+            newAutoReceiveIndexes.push(i);
+          }
+
+          return {
+            itemId: it.itemId,
+            itemType: it.itemType,
+            quantity: it.quantity,
+            unit: it.unit.trim(),
+            unitPrice: it.unitPrice,
+            lineOrder: i,
+            description: it.description?.trim() || undefined,
+            costCenterId: it.costCenterId?.trim() || undefined,
+            managementAccountId: it.managementAccountId?.trim() || undefined,
+            seasonId: it.seasonId?.trim() || undefined,
+            goesToStock: goesToStockNow,
+            received: receivedNow,
+          };
+        }),
         financials: formData.financials!.map((f) => ({
           dueDate: f.dueDate,
           amount: f.amount,
           paidAt: f.paidAt || undefined,
         })),
       };
-      await apiService.updateInvoice(selectedInvoice.id, payload);
+
+      // Verificar se houve itens que tinham recebimento e foram desmarcados como "Recebido"
+      let hadReceiptCount = 0;
+      let unreceiveCount = 0;
+      selectedInvoice.items.forEach((orig, index) => {
+        const formItem = formData.items?.[index];
+        if (!formItem) return;
+        const goesToStockOrig = (orig as { goesToStock?: boolean }).goesToStock ?? false;
+        const quantityReceivedTotal =
+          (orig as { quantityReceivedTotal?: number }).quantityReceivedTotal ?? 0;
+        const hadReceipt = goesToStockOrig && quantityReceivedTotal > 0;
+        if (!hadReceipt) return;
+        hadReceiptCount++;
+        const nowReceived = (formItem.goesToStock ?? false) && (formItem.received ?? false);
+        if (!nowReceived) {
+          unreceiveCount++;
+        }
+      });
+
+      if (unreceiveCount > 0) {
+        // Se o usuário tentou "desmarcar recebido" apenas de alguns itens, bloqueamos aqui
+        if (hadReceiptCount > 0 && unreceiveCount < hadReceiptCount) {
+          setError(
+            'Para remover recebimentos de apenas alguns itens, utilize a tela "Recebimento de Produtos".'
+          );
+          return;
+        }
+
+        // Todos os itens que tinham recebimento foram desmarcados: pedir confirmação
+        setPendingUpdatePayload(payload);
+        setPendingUnreceiveCount(unreceiveCount);
+        setShowUnreceiveConfirm(true);
+        return;
+      }
+
+      // Nenhuma alteração de "Recebido" que exija confirmação: salva normalmente
+      const updated = await apiService.updateInvoice(selectedInvoice.id, payload);
+
+      // Se algum item passou a ir para estoque com "Recebido" marcado, lançar recebimento automático
+      if (newAutoReceiveIndexes.length > 0) {
+        const autoItems = newAutoReceiveIndexes
+          .map((idx) => updated.items[idx])
+          .filter((it) => it && it.id)
+          .map((it) => ({
+            invoiceItemId: it.id,
+            quantityReceived: it.quantity,
+          }));
+
+        if (autoItems.length > 0) {
+          const receiptPayload: CreateInvoiceReceiptRequest = {
+            receiptDate: formData.issueDate,
+            notes: 'Recebimento automático ao marcar estoque/recebido na edição da despesa.',
+            items: autoItems,
+          };
+          await apiService.createInvoiceReceipt(updated.id, receiptPayload);
+        }
+      }
+
       setIsEditDialogOpen(false);
       setSelectedInvoice(null);
       resetForm();
       await loadInvoices();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao atualizar despesa');
+    }
+  };
+
+  const handleConfirmUnreceiveAndSave = async () => {
+    if (!selectedInvoice || !pendingUpdatePayload) {
+      setShowUnreceiveConfirm(false);
+      setPendingUpdatePayload(null);
+      return;
+    }
+    try {
+      setIsProcessingUnreceive(true);
+      setError(null);
+
+      // Remover todos os registros de recebimento desta nota (movimentos de estoque de entrada)
+      const receipts = await apiService.getInvoiceReceipts(selectedInvoice.id);
+      for (const rec of receipts) {
+        await apiService.deleteInvoiceReceipt(selectedInvoice.id, rec.id);
+      }
+
+      // Agora salvar a edição da despesa
+      await apiService.updateInvoice(selectedInvoice.id, pendingUpdatePayload);
+      setIsEditDialogOpen(false);
+      setSelectedInvoice(null);
+      resetForm();
+      await loadInvoices();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Falha ao remover recebimentos e atualizar despesa'
+      );
+    } finally {
+      setIsProcessingUnreceive(false);
+      setShowUnreceiveConfirm(false);
+      setPendingUpdatePayload(null);
+      setPendingUnreceiveCount(0);
     }
   };
 
@@ -453,37 +567,51 @@ export const Invoices = () => {
     }
   };
 
-  const openEditDialog = (inv: Invoice) => {
-    setSelectedInvoice(inv);
-    setFormData({
-      number: inv.number,
-      series: inv.series ?? '',
-      issueDate: inv.issueDate.slice(0, 10),
-      supplierId: inv.supplierId,
-      documentTypeId: inv.documentTypeId ?? '',
-      notes: inv.notes ?? '',
-      type: InvoiceType.DESPESA,
-      items: inv.items.map((it, i) => ({
-        itemId: it.itemId,
-        itemType: it.itemType as ItemType,
-        quantity: it.quantity,
-        unit: it.unit,
-        unitPrice: it.unitPrice,
-        lineOrder: i,
-        description: it.description,
-        costCenterId: (it as { costCenterId?: string | null }).costCenterId ?? undefined,
-        managementAccountId: (it as { managementAccountId?: string | null }).managementAccountId ?? undefined,
-        seasonId: (it as { seasonId?: string | null }).seasonId ?? undefined,
-        goesToStock: (it as { goesToStock?: boolean }).goesToStock ?? false,
-        received: false,
-      })),
-      financials: inv.financials.map((f) => ({
-        dueDate: f.dueDate.slice(0, 10),
-        amount: f.amount,
-        paidAt: f.paidAt?.slice(0, 10),
-      })),
-    });
-    setIsEditDialogOpen(true);
+  const openEditDialog = async (inv: Invoice) => {
+    try {
+      setError(null);
+      // Buscar a nota completa para garantir que tenhamos os totais de recebimento por item
+      const full = await apiService.getInvoice(inv.id);
+      setSelectedInvoice(full);
+      setFormData({
+        number: full.number,
+        series: full.series ?? '',
+        issueDate: full.issueDate.slice(0, 10),
+        supplierId: full.supplierId,
+        documentTypeId: full.documentTypeId ?? '',
+        notes: full.notes ?? '',
+        type: InvoiceType.DESPESA,
+        items: full.items.map((it, i) => {
+          const goesToStock = (it as { goesToStock?: boolean }).goesToStock ?? false;
+          const quantityReceivedTotal =
+            (it as { quantityReceivedTotal?: number }).quantityReceivedTotal ?? 0;
+
+          return {
+            itemId: it.itemId,
+            itemType: it.itemType as ItemType,
+            quantity: it.quantity,
+            unit: it.unit,
+            unitPrice: it.unitPrice,
+            lineOrder: i,
+            description: it.description,
+            costCenterId: (it as { costCenterId?: string | null }).costCenterId ?? undefined,
+            managementAccountId: (it as { managementAccountId?: string | null }).managementAccountId ?? undefined,
+            seasonId: (it as { seasonId?: string | null }).seasonId ?? undefined,
+            goesToStock,
+            // Se já houve recebimento (mesmo parcial), marcar como recebido ao carregar
+            received: goesToStock && quantityReceivedTotal > 0,
+          };
+        }),
+        financials: full.financials.map((f) => ({
+          dueDate: f.dueDate.slice(0, 10),
+          amount: f.amount,
+          paidAt: f.paidAt?.slice(0, 10),
+        })),
+      });
+      setIsEditDialogOpen(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao carregar despesa para edição');
+    }
   };
 
   const openReceiptModal = () => {
@@ -1007,7 +1135,14 @@ export const Invoices = () => {
                         </Select>
                         <Checkbox
                           checked={line.goesToStock ?? false}
-                          onCheckedChange={(checked) => updateItemLine(index, 'goesToStock', checked === true)}
+                          disabled={line.received === true}
+                          onCheckedChange={(checked) => {
+                            const value = checked === true;
+                            updateItemLine(index, 'goesToStock', value);
+                            if (!value && line.received) {
+                              updateItemLine(index, 'received', false);
+                            }
+                          }}
                         />
                         <div className="flex items-center justify-center" title="Receber no estoque na data da nota ao salvar">
                           {line.goesToStock ? (
@@ -1318,7 +1453,14 @@ export const Invoices = () => {
                       </Select>
                       <Checkbox
                         checked={line.goesToStock ?? false}
-                        onCheckedChange={(checked) => updateItemLine(index, 'goesToStock', checked === true)}
+                        disabled={line.received === true}
+                        onCheckedChange={(checked) => {
+                          const value = checked === true;
+                          updateItemLine(index, 'goesToStock', value);
+                          if (!value && line.received) {
+                            updateItemLine(index, 'received', false);
+                          }
+                        }}
                       />
                       <div className="flex items-center justify-center" title="Receber no estoque na data da nota ao salvar">
                         {line.goesToStock ? (
@@ -1395,6 +1537,58 @@ export const Invoices = () => {
                 Cancelar
               </Button>
               <Button onClick={handleEdit}>Salvar alterações</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Confirmação para remover recebimentos ao desmarcar "Recebido" na edição */}
+        <Dialog open={showUnreceiveConfirm} onOpenChange={(open) => {
+          if (!open && !isProcessingUnreceive) {
+            setShowUnreceiveConfirm(false);
+            setPendingUpdatePayload(null);
+            setPendingUnreceiveCount(0);
+          }
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Remover recebimentos desta nota?</DialogTitle>
+              <DialogDescription>
+                {pendingUnreceiveCount > 1
+                  ? `Você desmarcou o recebimento de ${pendingUnreceiveCount} itens que já tinham entrada registrada no estoque.`
+                  : 'Você desmarcou o recebimento de um item que já tinha entrada registrada no estoque.'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 text-sm">
+              <p>
+                Se confirmar, todos os registros de recebimento desta nota serão removidos e o
+                estoque será ajustado (saída dos produtos recebidos anteriormente).
+              </p>
+              <p className="font-medium">
+                Essa operação não pode ser desfeita automaticamente.
+              </p>
+            </div>
+            <DialogFooter className="mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isProcessingUnreceive}
+                onClick={() => {
+                  if (isProcessingUnreceive) return;
+                  setShowUnreceiveConfirm(false);
+                  setPendingUpdatePayload(null);
+                  setPendingUnreceiveCount(0);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleConfirmUnreceiveAndSave}
+                disabled={isProcessingUnreceive}
+              >
+                {isProcessingUnreceive ? 'Processando...' : 'Remover recebimentos e salvar'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

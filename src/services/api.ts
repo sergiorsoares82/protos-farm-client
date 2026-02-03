@@ -271,6 +271,8 @@ export interface InvoiceItemDTO {
   goesToStock?: boolean;
   /** Se true, ao salvar recebe o produto no estoque (quantidade da nota, data de emissão) */
   received?: boolean;
+  /** Para receitas: se true, ao salvar registra saída imediata (quantidade da nota, data de emissão) */
+  shipped?: boolean;
 }
 
 export interface InvoiceFinancialDTO {
