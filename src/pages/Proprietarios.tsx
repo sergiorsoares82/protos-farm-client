@@ -81,7 +81,7 @@ export const Proprietarios = () => {
     return farmOwners.filter(
       (p) =>
         p.nome.toLowerCase().includes(term) ||
-        p.email.toLowerCase().includes(term)
+        (p.email || '').toLowerCase().includes(term)
     );
   }, [farmOwners, searchTerm]);
 
@@ -128,9 +128,8 @@ export const Proprietarios = () => {
   const validateCreate = (): boolean => {
     const errors: Record<string, string> = {};
     if (!formData.nome.trim()) errors.nome = 'Nome é obrigatório';
-    if (!formData.email.trim()) {
-      errors.email = 'E-mail é obrigatório';
-    } else {
+    // E-mail é opcional: só validar formato se preenchido
+    if (formData.email.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
         errors.email = 'Informe um e-mail válido';
@@ -151,7 +150,7 @@ export const Proprietarios = () => {
         nome: formData.nome.trim(),
         personType: formData.personType,
         cpfCnpj: formData.cpfCnpj || undefined,
-        email: formData.email.trim(),
+        email: formData.email.trim() || undefined,
         phone: formData.phone || undefined,
         roles: [
           {
@@ -174,9 +173,8 @@ export const Proprietarios = () => {
     if (!selectedPerson) return;
     const errors: Record<string, string> = {};
     if (!formData.nome.trim()) errors.nome = 'Nome é obrigatório';
-    if (!formData.email.trim()) {
-      errors.email = 'E-mail é obrigatório';
-    } else {
+    // E-mail é opcional: só validar formato se preenchido
+    if (formData.email.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) errors.email = 'Informe um e-mail válido';
     }
@@ -190,7 +188,7 @@ export const Proprietarios = () => {
         nome: formData.nome.trim(),
         personType: formData.personType,
         cpfCnpj: formData.cpfCnpj || undefined,
-        email: formData.email.trim(),
+        email: formData.email.trim() || undefined,
         phone: formData.phone || undefined,
       };
       await apiService.updatePerson(selectedPerson.id, updates);
@@ -224,7 +222,7 @@ export const Proprietarios = () => {
       nome: person.nome,
       personType: person.personType,
       cpfCnpj: person.cpfCnpj ?? '',
-      email: person.email,
+      email: person.email ?? '',
       phone: person.phone ?? '',
     });
     setFieldErrors({});
@@ -302,7 +300,7 @@ export const Proprietarios = () => {
                         <div className="flex flex-wrap gap-4 text-sm">
                           <span className="flex items-center gap-1">
                             <Mail className="h-4 w-4" />
-                            {person.email}
+                            {person.email || '—'}
                           </span>
                           {person.phone && (
                             <span className="flex items-center gap-1">
@@ -438,7 +436,7 @@ export const Proprietarios = () => {
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="create-email">E-mail *</Label>
+                  <Label htmlFor="create-email">E-mail</Label>
                   <Input
                     id="create-email"
                     type="email"
@@ -536,7 +534,7 @@ export const Proprietarios = () => {
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="edit-email">E-mail *</Label>
+                  <Label htmlFor="edit-email">E-mail</Label>
                   <Input
                     id="edit-email"
                     type="email"
