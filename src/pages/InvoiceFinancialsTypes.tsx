@@ -163,12 +163,6 @@ export const InvoiceFinancialsTypes = () => {
     return false;
   };
 
-  const canDeleteItem = (item: InvoiceFinancialsType) => {
-    if (isSuperAdmin) return true;
-    if (isOrgAdmin && !item.isSystem) return true;
-    return false;
-  };
-
   const openEditDialog = (item: InvoiceFinancialsType) => {
     if (!canEditItem(item)) return;
     setSelectedItem(item);

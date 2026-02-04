@@ -27,7 +27,6 @@ import {
   Box,
   Ruler,
   Repeat,
-  Briefcase,
   Sprout,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -41,12 +40,37 @@ interface NavItem {
   roles?: UserRole[] | 'all';
 }
 
+const farmMenuItems: NavItem[] = [
+  {
+    name: 'Cadastro de Fazenda',
+    path: '/fazendas',
+    icon: MapPin,
+    roles: 'all',
+  },
+  {
+    name: 'Cadastro fundiário',
+    path: '/rural-properties',
+    icon: Landmark,
+    roles: 'all',
+  },
+  {
+    name: 'Blocos de produção',
+    path: '/production-sites',
+    icon: Sprout,
+    roles: 'all',
+  },
+  {
+    name: 'Contratos de exploração',
+    path: '/exploration-contracts',
+    icon: FileText,
+    roles: 'all',
+  },
+];
+
 const peopleMenuItems: NavItem[] = [
   { name: 'Persons', path: '/persons', icon: Users, roles: 'all' },
-  { name: 'Funcionários', path: '/funcionarios', icon: Briefcase, roles: 'all' },
   { name: 'Clientes e Fornecedores', path: '/clients-suppliers', icon: Building2, roles: 'all' },
   { name: 'Proprietários', path: '/proprietarios', icon: Sprout, roles: 'all' },
-  { name: 'Fazendas', path: '/fazendas', icon: MapPin, roles: 'all' },
   { name: 'Usuários', path: '/users', icon: UserCog, roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN] },
 ];
 
@@ -114,12 +138,13 @@ export const Sidebar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSuperAdminOpen, setIsSuperAdminOpen] = useState(false);
   // Um único estado: qual seção está aberta. Ao clicar num link dentro da seção, não alteramos; só fechamos ao abrir outra.
-  type SectionKey = 'people' | 'products' | 'agriculture';
+  type SectionKey = 'farm' | 'people' | 'products' | 'agriculture';
   const [expandedSection, setExpandedSection] = useState<SectionKey | null>(null);
 
   // Manter a seção aberta quando a rota pertence a ela (ex.: navegar entre Persons e Funcionários)
   useEffect(() => {
-    if (peopleMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('people');
+    if (farmMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('farm');
+    else if (peopleMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('people');
     else if (productsMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('products');
     else if (agricultureMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('agriculture');
   }, [location.pathname]);
@@ -139,10 +164,12 @@ export const Sidebar = () => {
 
   // For super admins, we'll render Organization + Super Admin under a collapsible section,
   // so exclude them from the main flat list. Exclude people, products and agriculture menu items (rendered in groups).
+  const farmPaths = farmMenuItems.map((i) => i.path);
   const peoplePaths = peopleMenuItems.map((i) => i.path);
   const productsPaths = productsMenuItems.map((i) => i.path);
   const agriculturePaths = agricultureMenuItems.map((i) => i.path);
   const mainNavItems = visibleNavItems.filter((item) => {
+    if (farmPaths.includes(item.path)) return false;
     if (peoplePaths.includes(item.path)) return false;
     if (productsPaths.includes(item.path)) return false;
     if (agriculturePaths.includes(item.path)) return false;
@@ -154,6 +181,14 @@ export const Sidebar = () => {
     }
     return true;
   });
+
+  const visibleFarmItems = farmMenuItems.filter((item) => {
+    if (item.roles === 'all') return true;
+    if (!item.roles) return true;
+    if (!user?.role) return false;
+    return item.roles.includes(user.role);
+  });
+  const isFarmSectionActive = farmPaths.some((path) => location.pathname === path);
 
   const visiblePeopleItems = peopleMenuItems.filter((item) => {
     if (item.roles === 'all') return true;
@@ -252,6 +287,55 @@ export const Sidebar = () => {
                     <Icon className="h-5 w-5" />
                     {item.name}
                   </Link>
+                  {/* Menu Fazenda: cadastro de fazenda, cadastro fundiário, blocos de produção, contratos de exploração */}
+                  {item.path === '/dashboard' && visibleFarmItems.length > 0 && (
+                    <div className="mt-1 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedSection((s) => (s === 'farm' ? null : 'farm'))}
+                        className={cn(
+                          'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                          isFarmSectionActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        )}
+                      >
+                        <span className="flex items-center gap-3">
+                          <Building2 className="h-5 w-5" />
+                          <span>Fazenda</span>
+                        </span>
+                        {expandedSection === 'farm' ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                      {expandedSection === 'farm' && (
+                        <div className="mt-1 space-y-1 pl-8">
+                          {visibleFarmItems.map((subItem) => {
+                            const SubIcon = subItem.icon;
+                            const isSubActive = location.pathname === subItem.path;
+                            return (
+                              <Link
+                                key={subItem.path}
+                                to={subItem.path}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={cn(
+                                  'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors',
+                                  isSubActive
+                                    ? 'bg-primary/90 text-primary-foreground'
+                                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                )}
+                              >
+                                <SubIcon className="h-4 w-4" />
+                                {subItem.name}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {/* Menu Pessoas: Persons, Funcionários, Clientes e Fornecedores */}
                   {item.path === '/dashboard' && visiblePeopleItems.length > 0 && (
                     <div className="mt-1 space-y-1">

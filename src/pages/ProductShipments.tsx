@@ -49,7 +49,7 @@ export const ProductShipments = () => {
       customShipmentDate?: string;
     }[];
   }>({ shipmentDate: '', notes: '', items: [] });
-  const [invoiceShipments, setInvoiceShipments] = useState<InvoiceShipmentDTO[]>([]);
+  const [, setInvoiceShipments] = useState<InvoiceShipmentDTO[]>([]);
   const [shipmentError, setShipmentError] = useState<string | null>(null);
 
   const [detailViewInvoice, setDetailViewInvoice] = useState<Invoice | null>(null);

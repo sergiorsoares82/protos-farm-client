@@ -170,6 +170,180 @@ export interface UpdateFarmRequest {
   ownershipTypeByPersonId?: Record<string, string>;
 }
 
+// Fundiário – Imóvel, Matrícula, Propriedade
+
+export interface RuralProperty {
+  id: string;
+  tenantId: string;
+  codigoSncr?: string | null;
+  nirf?: string | null;
+  nomeImovelIncra: string;
+  municipio?: string | null;
+  uf?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRuralPropertyRequest {
+  nomeImovelIncra: string;
+  codigoSncr?: string;
+  nirf?: string;
+  municipio?: string;
+  uf?: string;
+}
+
+export interface LandRegistry {
+  id: string;
+  tenantId: string;
+  ruralPropertyId?: string | null;
+  numeroMatricula: string;
+  cartorio: string;
+  areaHa?: number | null;
+  municipio?: string | null;
+  uf?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLandRegistryRequest {
+  ruralPropertyId?: string;
+  numeroMatricula: string;
+  cartorio: string;
+  areaHa?: number;
+  municipio?: string;
+  uf?: string;
+}
+
+export interface PropertyOwnership {
+  id: string;
+  tenantId: string;
+  landRegistryId: string;
+  personId: string;
+  percentualPosse?: number | null;
+  dataAquisicao?: string | null;
+  dataBaixa?: string | null;
+  tipoAquisicao?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertLandRegistryOwnersRequest {
+  owners: {
+    personId: string;
+    percentualPosse?: number;
+    dataAquisicao?: string;
+    tipoAquisicao?: string;
+  }[];
+}
+
+// IE e Blocos de Produção
+
+export interface StateRegistration {
+  id: string;
+  tenantId: string;
+  personId: string;
+  numeroIe: string;
+  uf: string;
+  situacao: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateStateRegistrationRequest {
+  personId: string;
+  numeroIe: string;
+  uf: string;
+  situacao?: string;
+}
+
+export interface ProductionSite {
+  id: string;
+  tenantId: string;
+  farmId: string;
+  nomeBloco: string;
+  descricao?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProductionSiteRequest {
+  farmId: string;
+  nomeBloco: string;
+  descricao?: string;
+}
+
+export interface ProductionSiteParcel {
+  id: string;
+  tenantId: string;
+  productionSiteId: string;
+  landRegistryId: string;
+  areaHa?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertProductionSiteParcelsRequest {
+  parcels: {
+    landRegistryId: string;
+    areaHa?: number;
+  }[];
+}
+
+export interface ProductionSiteStateRegistration {
+  id: string;
+  tenantId: string;
+  productionSiteId: string;
+  stateRegistrationId: string;
+  dataInicioVigencia: string;
+  dataFimVigencia?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LinkProductionSiteStateRegistrationRequest {
+  stateRegistrationId: string;
+  dataInicioVigencia: string;
+  dataFimVigencia?: string;
+}
+
+// Contratos de Exploração
+
+export type ExplorationContractType =
+  | 'ARRENDAMENTO'
+  | 'PARCERIA'
+  | 'PROPRIO'
+  | 'COMODATO';
+
+export interface ExplorationContract {
+  id: string;
+  tenantId: string;
+  farmId: string;
+  productionSiteId?: string | null;
+  explorerId: string;
+  landOwnerId?: string | null;
+  stateRegistrationId?: string | null;
+  tipoContrato: ExplorationContractType;
+  dataInicio: string;
+  dataFim?: string | null;
+  valorContrato?: number | null;
+  observacoes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateExplorationContractRequest {
+  farmId: string;
+  productionSiteId?: string;
+  explorerId: string;
+  landOwnerId?: string;
+  stateRegistrationId?: string;
+  tipoContrato: ExplorationContractType;
+  dataInicio: string;
+  dataFim?: string;
+  valorContrato?: number;
+  observacoes?: string;
+}
+
 // Organization Types
 export interface Organization {
   id: string;
@@ -1138,6 +1312,182 @@ class ApiService {
       headers: this.getAuthHeaders(),
     });
     await this.handleResponse<{ success: boolean }>(response);
+  }
+
+  // Fundiário: Imóveis & Matrículas
+
+  async getRuralProperties(): Promise<RuralProperty[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/rural-properties`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: RuralProperty[] }>(response);
+    return data.data;
+  }
+
+  async createRuralProperty(body: CreateRuralPropertyRequest): Promise<RuralProperty> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/rural-properties`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(body),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: RuralProperty }>(response);
+    return data.data;
+  }
+
+  async getLandRegistries(): Promise<LandRegistry[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/land-registries`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: LandRegistry[] }>(response);
+    return data.data;
+  }
+
+  async createLandRegistry(body: CreateLandRegistryRequest): Promise<LandRegistry> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/land-registries`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(body),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: LandRegistry }>(response);
+    return data.data;
+  }
+
+  async upsertLandRegistryOwners(
+    landRegistryId: string,
+    body: UpsertLandRegistryOwnersRequest,
+  ): Promise<PropertyOwnership[]> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/land-registries/${landRegistryId}/owners`,
+      {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(body),
+      },
+    );
+    const data = await this.handleResponse<{ success: boolean; data: PropertyOwnership[] }>(
+      response,
+    );
+    return data.data;
+  }
+
+  // IE & Blocos de Produção
+
+  async getStateRegistrations(): Promise<StateRegistration[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/state-registrations`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: StateRegistration[] }>(
+      response,
+    );
+    return data.data;
+  }
+
+  async createStateRegistration(
+    body: CreateStateRegistrationRequest,
+  ): Promise<StateRegistration> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/state-registrations`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(body),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: StateRegistration }>(
+      response,
+    );
+    return data.data;
+  }
+
+  async getProductionSitesByFarm(farmId: string): Promise<ProductionSite[]> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/farms/${farmId}/production-sites`,
+      {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+      },
+    );
+    const data = await this.handleResponse<{ success: boolean; data: ProductionSite[] }>(
+      response,
+    );
+    return data.data;
+  }
+
+  async createProductionSite(body: CreateProductionSiteRequest): Promise<ProductionSite> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/production-sites`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(body),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: ProductionSite }>(response);
+    return data.data;
+  }
+
+  async upsertProductionSiteParcels(
+    productionSiteId: string,
+    body: UpsertProductionSiteParcelsRequest,
+  ): Promise<ProductionSiteParcel[]> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/production-sites/${productionSiteId}/parcels`,
+      {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(body),
+      },
+    );
+    const data = await this.handleResponse<{ success: boolean; data: ProductionSiteParcel[] }>(
+      response,
+    );
+    return data.data;
+  }
+
+  async linkProductionSiteStateRegistration(
+    productionSiteId: string,
+    body: LinkProductionSiteStateRegistrationRequest,
+  ): Promise<ProductionSiteStateRegistration> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/production-sites/${productionSiteId}/state-registrations`,
+      {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(body),
+      },
+    );
+    const data = await this.handleResponse<{
+      success: boolean;
+      data: ProductionSiteStateRegistration;
+    }>(response);
+    return data.data;
+  }
+
+  // Contratos de Exploração
+
+  async getExplorationContractsByFarm(farmId: string): Promise<ExplorationContract[]> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/farms/${farmId}/exploration-contracts`,
+      {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+      },
+    );
+    const data = await this.handleResponse<{ success: boolean; data: ExplorationContract[] }>(
+      response,
+    );
+    return data.data;
+  }
+
+  async createExplorationContract(
+    body: CreateExplorationContractRequest,
+  ): Promise<ExplorationContract> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/exploration-contracts`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(body),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: ExplorationContract }>(
+      response,
+    );
+    return data.data;
   }
 
   // Organization Management

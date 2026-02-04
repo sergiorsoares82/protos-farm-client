@@ -49,7 +49,7 @@ export const ProductReceipts = () => {
       customReceiptDate?: string;
     }[];
   }>({ receiptDate: '', notes: '', items: [] });
-  const [invoiceReceipts, setInvoiceReceipts] = useState<InvoiceReceiptDTO[]>([]);
+  const [, setInvoiceReceipts] = useState<InvoiceReceiptDTO[]>([]);
   const [receiptError, setReceiptError] = useState<string | null>(null);
 
   const [detailViewInvoice, setDetailViewInvoice] = useState<Invoice | null>(null);

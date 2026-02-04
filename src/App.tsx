@@ -30,6 +30,9 @@ import { Assets } from '@/pages/Assets';
 import { Funcionarios } from '@/pages/Funcionarios';
 import { Proprietarios } from '@/pages/Proprietarios';
 import { Fazendas } from '@/pages/Fazendas';
+import { RuralProperties } from '@/pages/RuralProperties';
+import { ProductionSites } from '@/pages/ProductionSites';
+import { ExplorationContracts } from '@/pages/ExplorationContracts';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
@@ -87,6 +90,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <Fazendas />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rural-properties"
+            element={
+              <ProtectedRoute>
+                <RuralProperties />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/production-sites"
+            element={
+              <ProtectedRoute>
+                <ProductionSites />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/exploration-contracts"
+            element={
+              <ProtectedRoute>
+                <ExplorationContracts />
               </ProtectedRoute>
             }
           />

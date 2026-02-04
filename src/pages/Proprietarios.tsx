@@ -150,7 +150,7 @@ export const Proprietarios = () => {
         nome: formData.nome.trim(),
         personType: formData.personType,
         cpfCnpj: formData.cpfCnpj || undefined,
-        email: formData.email.trim() || undefined,
+        email: formData.email.trim() || '',
         phone: formData.phone || undefined,
         roles: [
           {
