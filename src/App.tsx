@@ -28,6 +28,7 @@ import { MachineTypes } from '@/pages/MachineTypes';
 import { Machines } from '@/pages/Machines';
 import { Assets } from '@/pages/Assets';
 import { Funcionarios } from '@/pages/Funcionarios';
+import { Proprietarios } from '@/pages/Proprietarios';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
@@ -69,6 +70,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ClientsSuppliers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/proprietarios"
+            element={
+              <ProtectedRoute>
+                <Proprietarios />
               </ProtectedRoute>
             }
           />

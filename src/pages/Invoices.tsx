@@ -41,6 +41,8 @@ import {
   PersonType,
   PersonRole,
   CreateItemRequest,
+  BankAccount,
+  InvoiceFinancialsType,
 } from '@/services/api';
 
 const defaultForm: CreateInvoiceRequest = {
@@ -87,6 +89,8 @@ export const Invoices = () => {
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [managementAccounts, setManagementAccounts] = useState<ManagementAccount[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [invoiceFinancialsTypes, setInvoiceFinancialsTypes] = useState<InvoiceFinancialsType[]>([]);
 
   const [formData, setFormData] = useState<CreateInvoiceRequest>({ ...defaultForm });
   const [showUnreceiveConfirm, setShowUnreceiveConfirm] = useState(false);
@@ -149,6 +153,8 @@ export const Invoices = () => {
           costCentersRes,
           managementAccountsRes,
           seasonsRes,
+          bankAccountsRes,
+          invoiceFinancialsTypesRes,
         ] = await Promise.all([
           apiService.getSuppliers(),
           apiService.getItems(),
@@ -157,6 +163,8 @@ export const Invoices = () => {
           apiService.getCostCenters(),
           apiService.getManagementAccounts(),
           apiService.getSeasons(),
+          apiService.getBankAccounts(),
+          apiService.getInvoiceFinancialsTypes(),
         ]);
         setSuppliers(suppliersRes);
         setItems(itemsRes);
@@ -165,6 +173,8 @@ export const Invoices = () => {
         setCostCenters(costCentersRes.filter((c) => c.isActive));
         setManagementAccounts(managementAccountsRes);
         setSeasons(seasonsRes.filter((s) => s.isActive));
+        setBankAccounts(bankAccountsRes.filter((b) => b.isActive));
+        setInvoiceFinancialsTypes(invoiceFinancialsTypesRes.filter((t) => t.isActive));
       } catch (err) {
         console.error('Failed to load lookups', err);
       }
@@ -316,7 +326,16 @@ export const Invoices = () => {
       ...prev,
       financials: [
         ...(prev.financials ?? []),
-        { dueDate: new Date().toISOString().slice(0, 10), amount: 0 },
+        {
+          dueDate: new Date().toISOString().slice(0, 10),
+          amount: 0,
+          paidAt: undefined,
+          clearedAt: undefined,
+          penalty: 0,
+          interest: 0,
+          bankAccountId: undefined,
+          invoiceFinancialsTypeId: undefined,
+        },
       ],
     }));
   };
@@ -324,7 +343,7 @@ export const Invoices = () => {
   const updateFinancialLine = (
     index: number,
     field: keyof InvoiceFinancialDTO,
-    value: string | number
+    value: string | number | undefined
   ) => {
     setFormData((prev) => {
       const financials = [...(prev.financials ?? [])];
@@ -375,6 +394,11 @@ export const Invoices = () => {
           dueDate: f.dueDate,
           amount: f.amount,
           paidAt: f.paidAt || undefined,
+          clearedAt: f.clearedAt || undefined,
+          penalty: f.penalty ?? 0,
+          interest: f.interest ?? 0,
+          bankAccountId: f.bankAccountId || undefined,
+          invoiceFinancialsTypeId: f.invoiceFinancialsTypeId || undefined,
         })),
       };
       await apiService.createInvoice(payload);
@@ -438,6 +462,11 @@ export const Invoices = () => {
           dueDate: f.dueDate,
           amount: f.amount,
           paidAt: f.paidAt || undefined,
+          clearedAt: f.clearedAt || undefined,
+          penalty: f.penalty ?? 0,
+          interest: f.interest ?? 0,
+          bankAccountId: f.bankAccountId || undefined,
+          invoiceFinancialsTypeId: f.invoiceFinancialsTypeId || undefined,
         })),
       };
 
@@ -605,7 +634,12 @@ export const Invoices = () => {
         financials: full.financials.map((f) => ({
           dueDate: f.dueDate.slice(0, 10),
           amount: f.amount,
-          paidAt: f.paidAt?.slice(0, 10),
+          paidAt: (f as { paidAt?: string }).paidAt?.slice(0, 10),
+          clearedAt: (f as { clearedAt?: string }).clearedAt?.slice(0, 10),
+          penalty: (f as { penalty?: number }).penalty ?? 0,
+          interest: (f as { interest?: number }).interest ?? 0,
+          bankAccountId: (f as { bankAccountId?: string | null }).bankAccountId ?? undefined,
+          invoiceFinancialsTypeId: (f as { invoiceFinancialsTypeId?: string | null }).invoiceFinancialsTypeId ?? undefined,
         })),
       });
       setIsEditDialogOpen(true);
@@ -906,7 +940,7 @@ export const Invoices = () => {
 
         {/* Create Dialog */}
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
+          <DialogContent className="max-w-[1400px] w-[95vw] max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
             <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
               <DialogTitle>Nova despesa</DialogTitle>
               <DialogDescription>
@@ -916,37 +950,11 @@ export const Invoices = () => {
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="grid gap-4 py-4 px-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Número *</Label>
-                  <Input
-                    value={formData.number}
-                    onChange={(e) => setFormData({ ...formData, number: e.target.value })}
-                    placeholder="ex: 000123"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Série</Label>
-                  <Input
-                    value={formData.series ?? ''}
-                    onChange={(e) => setFormData({ ...formData, series: e.target.value })}
-                    placeholder="ex: 1"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Data de emissão *</Label>
-                  <Input
-                    type="date"
-                    value={formData.issueDate}
-                    onChange={(e) => setFormData({ ...formData, issueDate: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4">
+                <div className="space-y-2 min-w-0">
                   <Label>Fornecedor *</Label>
                   <div className="flex gap-2">
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <Autocomplete
                         options={suppliers.map((s) => ({
                           value: s.id,
@@ -969,23 +977,51 @@ export const Invoices = () => {
                     </Button>
                   </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Data de emissão *</Label>
+                  <Input
+                    type="date"
+                    value={formData.issueDate}
+                    onChange={(e) => setFormData({ ...formData, issueDate: e.target.value })}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label>Tipo de Documento</Label>
-                  <select
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                    value={formData.documentTypeId ?? ''}
-                    onChange={(e) => setFormData({ ...formData, documentTypeId: e.target.value || undefined })}
+                  <Select
+                    value={formData.documentTypeId ?? NONE_VALUE}
+                    onValueChange={(v) => setFormData({ ...formData, documentTypeId: v === NONE_VALUE ? undefined : v })}
                   >
-                    <option value="">Selecione...</option>
-                    {documentTypes.map((dt) => (
-                      <option key={dt.id} value={dt.id}>
-                        {dt.name} ({dt.group})
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE_VALUE}>Selecione...</SelectItem>
+                      {documentTypes.map((dt) => (
+                        <SelectItem key={dt.id} value={dt.id}>
+                          {dt.name} ({dt.group})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label>Número *</Label>
+                  <Input
+                    value={formData.number}
+                    onChange={(e) => setFormData({ ...formData, number: e.target.value })}
+                    placeholder="ex: 000123"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Série</Label>
+                  <Input
+                    value={formData.series ?? ''}
+                    onChange={(e) => setFormData({ ...formData, series: e.target.value })}
+                    placeholder="ex: 1"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label>Observações</Label>
                   <Input
@@ -1171,7 +1207,7 @@ export const Invoices = () => {
 
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="flex items-center gap-2">
+                  <Label className="flex items-center gap-2 whitespace-nowrap">
                     <DollarSign className="h-4 w-4" /> Parcelas financeiras (vencimentos)
                   </Label>
                   <Button type="button" variant="outline" size="sm" onClick={addFinancialLine}>
@@ -1183,41 +1219,118 @@ export const Invoices = () => {
                     Nenhuma parcela. Adicione pelo menos uma (data de vencimento e valor).
                   </p>
                 ) : (
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                  <div className="rounded-md border max-h-48 overflow-auto">
+                    <div className="grid grid-cols-[44px_110px_100px_110px_110px_72px_72px_100px_140px_140px_40px] gap-x-2 gap-y-1 px-2 py-2 bg-muted/50 text-xs text-muted-foreground font-medium min-w-[1058px]">
+                      <span>Nº</span>
+                      <span>Venc.</span>
+                      <span>Valor (R$)</span>
+                      <span>Data pag.</span>
+                      <span>Data comp.</span>
+                      <span>Multa</span>
+                      <span>Juros</span>
+                      <span>Total</span>
+                      <span>Conta bancária</span>
+                      <span>Tipo pag.</span>
+                      <span className="w-9" />
+                    </div>
                     {(formData.financials ?? []).map((fin, index) => (
                       <div
                         key={index}
-                        className="grid grid-cols-12 gap-2 items-end border rounded p-2 bg-muted/30"
+                        className="grid grid-cols-[44px_110px_100px_110px_110px_72px_72px_100px_140px_140px_40px] gap-x-2 gap-y-1 px-2 py-2 border-t bg-muted/20 items-center min-w-[1058px]"
                       >
-                        <div className="col-span-4">
-                          <Label className="text-xs">Data vencimento</Label>
-                          <Input
-                            type="date"
-                            value={fin.dueDate}
-                            onChange={(e) =>
-                              updateFinancialLine(index, 'dueDate', e.target.value)
-                            }
-                          />
-                        </div>
-                        <div className="col-span-4">
-                          <Label className="text-xs">Valor (R$)</Label>
-                          <DecimalInput
-                            value={fin.amount}
-                            onChange={(v) => updateFinancialLine(index, 'amount', v)}
-                          />
-                        </div>
-                        <div className="col-span-3" />
-                        <div className="col-span-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-500"
-                            onClick={() => removeFinancialLine(index)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <span className="text-sm text-muted-foreground tabular-nums">
+                          {index + 1}/{(formData.financials ?? []).length}
+                        </span>
+                        <Input
+                          type="date"
+                          className="h-9"
+                          value={fin.dueDate}
+                          onChange={(e) =>
+                            updateFinancialLine(index, 'dueDate', e.target.value)
+                          }
+                        />
+                        <DecimalInput
+                          placeholder="0,00"
+                          className="h-9 px-2"
+                          value={fin.amount}
+                          onChange={(v) => updateFinancialLine(index, 'amount', v)}
+                        />
+                        <Input
+                          type="date"
+                          className="h-9"
+                          value={fin.paidAt ?? ''}
+                          onChange={(e) =>
+                            updateFinancialLine(index, 'paidAt', e.target.value || undefined)
+                          }
+                        />
+                        <Input
+                          type="date"
+                          className="h-9"
+                          value={fin.clearedAt ?? ''}
+                          onChange={(e) =>
+                            updateFinancialLine(index, 'clearedAt', e.target.value || undefined)
+                          }
+                        />
+                        <DecimalInput
+                          placeholder="0,00"
+                          className="h-9 px-2"
+                          value={fin.penalty ?? 0}
+                          onChange={(v) => updateFinancialLine(index, 'penalty', v)}
+                        />
+                        <DecimalInput
+                          placeholder="0,00"
+                          className="h-9 px-2"
+                          value={fin.interest ?? 0}
+                          onChange={(v) => updateFinancialLine(index, 'interest', v)}
+                        />
+                        <span className="text-sm font-medium tabular-nums">
+                          {formatCurrency((fin.amount ?? 0) + (fin.penalty ?? 0) + (fin.interest ?? 0))}
+                        </span>
+                        <Select
+                          value={fin.bankAccountId ?? NONE_VALUE}
+                          onValueChange={(v) =>
+                            updateFinancialLine(index, 'bankAccountId', v === NONE_VALUE ? undefined : v)
+                          }
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="—" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NONE_VALUE}>Nenhuma</SelectItem>
+                            {bankAccounts.map((b) => (
+                              <SelectItem key={b.id} value={b.id}>
+                                {b.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={fin.invoiceFinancialsTypeId ?? NONE_VALUE}
+                          onValueChange={(v) =>
+                            updateFinancialLine(index, 'invoiceFinancialsTypeId', v === NONE_VALUE ? undefined : v)
+                          }
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="—" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NONE_VALUE}>Nenhum</SelectItem>
+                            {invoiceFinancialsTypes.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-500"
+                          onClick={() => removeFinancialLine(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -1236,7 +1349,7 @@ export const Invoices = () => {
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
+          <DialogContent className="max-w-[1400px] w-[95vw] max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
             <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
               <DialogTitle>Editar despesa</DialogTitle>
               <DialogDescription>
@@ -1245,35 +1358,11 @@ export const Invoices = () => {
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="grid gap-4 py-4 px-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Número *</Label>
-                  <Input
-                    value={formData.number}
-                    onChange={(e) => setFormData({ ...formData, number: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Série</Label>
-                  <Input
-                    value={formData.series ?? ''}
-                    onChange={(e) => setFormData({ ...formData, series: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Data de emissão *</Label>
-                  <Input
-                    type="date"
-                    value={formData.issueDate}
-                    onChange={(e) => setFormData({ ...formData, issueDate: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4">
+                <div className="space-y-2 min-w-0">
                   <Label>Fornecedor *</Label>
                   <div className="flex gap-2">
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <Autocomplete
                         options={suppliers.map((s) => ({
                           value: s.id,
@@ -1296,23 +1385,49 @@ export const Invoices = () => {
                     </Button>
                   </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Data de emissão *</Label>
+                  <Input
+                    type="date"
+                    value={formData.issueDate}
+                    onChange={(e) => setFormData({ ...formData, issueDate: e.target.value })}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label>Tipo de Documento</Label>
-                  <select
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                    value={formData.documentTypeId ?? ''}
-                    onChange={(e) => setFormData({ ...formData, documentTypeId: e.target.value || undefined })}
+                  <Select
+                    value={formData.documentTypeId ?? NONE_VALUE}
+                    onValueChange={(v) => setFormData({ ...formData, documentTypeId: v === NONE_VALUE ? undefined : v })}
                   >
-                    <option value="">Selecione...</option>
-                    {documentTypes.map((dt) => (
-                      <option key={dt.id} value={dt.id}>
-                        {dt.name} ({dt.group})
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE_VALUE}>Selecione...</SelectItem>
+                      {documentTypes.map((dt) => (
+                        <SelectItem key={dt.id} value={dt.id}>
+                          {dt.name} ({dt.group})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label>Número *</Label>
+                  <Input
+                    value={formData.number}
+                    onChange={(e) => setFormData({ ...formData, number: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Série</Label>
+                  <Input
+                    value={formData.series ?? ''}
+                    onChange={(e) => setFormData({ ...formData, series: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label>Observações</Label>
                   <Input
@@ -1488,47 +1603,130 @@ export const Invoices = () => {
 
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between mb-2">
-                  <Label>Parcelas financeiras</Label>
+                  <Label className="flex items-center gap-2 whitespace-nowrap">
+                    <DollarSign className="h-4 w-4" /> Parcelas financeiras (vencimentos)
+                  </Label>
                   <Button type="button" variant="outline" size="sm" onClick={addFinancialLine}>
                     <Plus className="h-4 w-4 mr-1" /> Adicionar parcela
                   </Button>
                 </div>
-                {(formData.financials ?? []).map((fin, index) => (
-                  <div
-                    key={index}
-                    className="grid grid-cols-12 gap-2 items-end border rounded p-2 bg-muted/30 mb-2"
-                  >
-                    <div className="col-span-4">
-                      <Label className="text-xs">Data vencimento</Label>
-                      <Input
-                        type="date"
-                        value={fin.dueDate}
-                        onChange={(e) =>
-                          updateFinancialLine(index, 'dueDate', e.target.value)
-                        }
-                      />
+                {(formData.financials ?? []).length === 0 ? null : (
+                  <div className="rounded-md border max-h-48 overflow-auto">
+                    <div className="grid grid-cols-[44px_110px_100px_110px_110px_72px_72px_100px_140px_140px_40px] gap-x-2 gap-y-1 px-2 py-2 bg-muted/50 text-xs text-muted-foreground font-medium min-w-[1058px]">
+                      <span>Nº</span>
+                      <span>Venc.</span>
+                      <span>Valor (R$)</span>
+                      <span>Data pag.</span>
+                      <span>Data comp.</span>
+                      <span>Multa</span>
+                      <span>Juros</span>
+                      <span>Total</span>
+                      <span>Conta bancária</span>
+                      <span>Tipo pag.</span>
+                      <span className="w-9" />
                     </div>
-                    <div className="col-span-4">
-                      <Label className="text-xs">Valor (R$)</Label>
-                      <DecimalInput
-                        value={fin.amount}
-                        onChange={(v) => updateFinancialLine(index, 'amount', v)}
-                      />
-                    </div>
-                    <div className="col-span-3" />
-                    <div className="col-span-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-500"
-                        onClick={() => removeFinancialLine(index)}
+                    {(formData.financials ?? []).map((fin, index) => (
+                      <div
+                        key={index}
+                        className="grid grid-cols-[44px_110px_100px_110px_110px_72px_72px_100px_140px_140px_40px] gap-x-2 gap-y-1 px-2 py-2 border-t bg-muted/20 items-center min-w-[1058px]"
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                        <span className="text-sm text-muted-foreground tabular-nums">
+                          {index + 1}/{(formData.financials ?? []).length}
+                        </span>
+                        <Input
+                          type="date"
+                          className="h-9"
+                          value={fin.dueDate}
+                          onChange={(e) =>
+                            updateFinancialLine(index, 'dueDate', e.target.value)
+                          }
+                        />
+                        <DecimalInput
+                          placeholder="0,00"
+                          className="h-9 px-2"
+                          value={fin.amount}
+                          onChange={(v) => updateFinancialLine(index, 'amount', v)}
+                        />
+                        <Input
+                          type="date"
+                          className="h-9"
+                          value={fin.paidAt ?? ''}
+                          onChange={(e) =>
+                            updateFinancialLine(index, 'paidAt', e.target.value || undefined)
+                          }
+                        />
+                        <Input
+                          type="date"
+                          className="h-9"
+                          value={fin.clearedAt ?? ''}
+                          onChange={(e) =>
+                            updateFinancialLine(index, 'clearedAt', e.target.value || undefined)
+                          }
+                        />
+                        <DecimalInput
+                          placeholder="0,00"
+                          className="h-9 px-2"
+                          value={fin.penalty ?? 0}
+                          onChange={(v) => updateFinancialLine(index, 'penalty', v)}
+                        />
+                        <DecimalInput
+                          placeholder="0,00"
+                          className="h-9 px-2"
+                          value={fin.interest ?? 0}
+                          onChange={(v) => updateFinancialLine(index, 'interest', v)}
+                        />
+                        <span className="text-sm font-medium tabular-nums">
+                          {formatCurrency((fin.amount ?? 0) + (fin.penalty ?? 0) + (fin.interest ?? 0))}
+                        </span>
+                        <Select
+                          value={fin.bankAccountId ?? NONE_VALUE}
+                          onValueChange={(v) =>
+                            updateFinancialLine(index, 'bankAccountId', v === NONE_VALUE ? undefined : v)
+                          }
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="—" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NONE_VALUE}>Nenhuma</SelectItem>
+                            {bankAccounts.map((b) => (
+                              <SelectItem key={b.id} value={b.id}>
+                                {b.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={fin.invoiceFinancialsTypeId ?? NONE_VALUE}
+                          onValueChange={(v) =>
+                            updateFinancialLine(index, 'invoiceFinancialsTypeId', v === NONE_VALUE ? undefined : v)
+                          }
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="—" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NONE_VALUE}>Nenhum</SelectItem>
+                            {invoiceFinancialsTypes.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-500"
+                          onClick={() => removeFinancialLine(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             </div>
             </div>
@@ -1653,7 +1851,7 @@ export const Invoices = () => {
                   )}
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Parcelas financeiras (vencimentos)</Label>
+                  <Label className="text-sm font-medium whitespace-nowrap">Parcelas financeiras (vencimentos)</Label>
                   <div className="mt-2 border rounded divide-y text-sm">
                     {detailInvoice.financials?.length ? (
                       detailInvoice.financials.map((fin) => (
