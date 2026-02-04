@@ -198,6 +198,9 @@ export interface LandRegistry {
   ruralPropertyId?: string | null;
   numeroMatricula: string;
   cartorio: string;
+  dataRegistro?: string | null;
+  registro?: string | null;
+  livroOuFicha?: string | null;
   areaHa?: number | null;
   municipio?: string | null;
   uf?: string | null;
@@ -209,6 +212,9 @@ export interface CreateLandRegistryRequest {
   ruralPropertyId?: string;
   numeroMatricula: string;
   cartorio: string;
+  dataRegistro?: string;
+  registro?: string;
+  livroOuFicha?: string;
   areaHa?: number;
   municipio?: string;
   uf?: string;

@@ -18,6 +18,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Search, Loader2, MapPin, Plus, X, FileText } from 'lucide-react';
 import {
   apiService,
@@ -28,6 +35,23 @@ import {
 } from '@/services/api';
 
 const ITEMS_PER_PAGE = 10;
+
+/** Máscara Código do Imóvel Rural: ddd.ddd.ddd.ddd-d (ex.: 434.205.014.320-4) */
+function maskCodigoSncr(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 13);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  if (digits.length <= 12) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}.${digits.slice(9)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}.${digits.slice(9, 12)}-${digits.slice(12)}`;
+}
+
+/** Máscara CIB: ddddddd-d (ex.: 1111111-1) */
+function maskCib(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 7) return digits;
+  return `${digits.slice(0, 7)}-${digits.slice(7)}`;
+}
 
 export const RuralProperties = () => {
   const [ruralProperties, setRuralProperties] = useState<RuralProperty[]>([]);
@@ -55,6 +79,9 @@ export const RuralProperties = () => {
     ruralPropertyId: '',
     numeroMatricula: '',
     cartorio: '',
+    dataRegistro: '',
+    registro: '',
+    livroOuFicha: '',
     areaHa: '' as string | number,
     municipio: '',
     uf: '',
@@ -100,6 +127,9 @@ export const RuralProperties = () => {
       ruralPropertyId: '',
       numeroMatricula: '',
       cartorio: '',
+      dataRegistro: '',
+      registro: '',
+      livroOuFicha: '',
       areaHa: '',
       municipio: '',
       uf: '',
@@ -178,6 +208,13 @@ export const RuralProperties = () => {
         }),
         numeroMatricula: landRegistryForm.numeroMatricula.trim(),
         cartorio: landRegistryForm.cartorio.trim(),
+        ...(landRegistryForm.dataRegistro.trim() && {
+          dataRegistro: landRegistryForm.dataRegistro.trim(),
+        }),
+        ...(landRegistryForm.registro.trim() && { registro: landRegistryForm.registro.trim() }),
+        ...(landRegistryForm.livroOuFicha.trim() && {
+          livroOuFicha: landRegistryForm.livroOuFicha.trim(),
+        }),
         ...(landRegistryForm.areaHa !== '' && landRegistryForm.areaHa != null && {
           areaHa: Number(landRegistryForm.areaHa),
         }),
@@ -428,23 +465,33 @@ export const RuralProperties = () => {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="prop-sncr">Código SNCR / CNIR</Label>
+                <Label htmlFor="prop-sncr">Código do Imóvel Rural (INCRA)</Label>
                 <Input
                   id="prop-sncr"
                   value={propertyForm.codigoSncr}
                   onChange={(e) =>
-                    setPropertyForm({ ...propertyForm, codigoSncr: e.target.value })
+                    setPropertyForm({
+                      ...propertyForm,
+                      codigoSncr: maskCodigoSncr(e.target.value),
+                    })
                   }
+                  placeholder="Ex.: 123.123.123.123-1"
+                  maxLength={17}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="prop-nirf">NIRF</Label>
+                <Label htmlFor="prop-nirf">CIB</Label>
                 <Input
                   id="prop-nirf"
                   value={propertyForm.nirf}
                   onChange={(e) =>
-                    setPropertyForm({ ...propertyForm, nirf: e.target.value })
+                    setPropertyForm({
+                      ...propertyForm,
+                      nirf: maskCib(e.target.value),
+                    })
                   }
+                  placeholder="Ex.: 1111111-1"
+                  maxLength={9}
                 />
               </div>
             </div>
@@ -512,24 +559,27 @@ export const RuralProperties = () => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="mat-imovel">Imóvel rural (opcional)</Label>
-              <select
-                id="mat-imovel"
-                className="w-full border rounded-md px-3 py-2 text-sm bg-background"
-                value={landRegistryForm.ruralPropertyId}
-                onChange={(e) =>
+              <Select
+                value={landRegistryForm.ruralPropertyId || '__none__'}
+                onValueChange={(v) =>
                   setLandRegistryForm({
                     ...landRegistryForm,
-                    ruralPropertyId: e.target.value,
+                    ruralPropertyId: v === '__none__' ? '' : v,
                   })
                 }
               >
-                <option value="">Selecionar...</option>
-                {ruralProperties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nomeImovelIncra}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="mat-imovel">
+                  <SelectValue placeholder="Selecionar..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Selecionar...</SelectItem>
+                  {ruralProperties.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nomeImovelIncra}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="mat-numero">Número da matrícula *</Label>
@@ -566,6 +616,48 @@ export const RuralProperties = () => {
               {fieldErrors.cartorio && (
                 <p className="text-sm text-destructive">{fieldErrors.cartorio}</p>
               )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="mat-data-registro">Data de registro</Label>
+                <Input
+                  id="mat-data-registro"
+                  type="date"
+                  value={landRegistryForm.dataRegistro}
+                  onChange={(e) =>
+                    setLandRegistryForm({
+                      ...landRegistryForm,
+                      dataRegistro: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mat-registro">Registro</Label>
+                <Input
+                  id="mat-registro"
+                  value={landRegistryForm.registro}
+                  onChange={(e) =>
+                    setLandRegistryForm({
+                      ...landRegistryForm,
+                      registro: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mat-livro-ficha">Livro ou ficha</Label>
+                <Input
+                  id="mat-livro-ficha"
+                  value={landRegistryForm.livroOuFicha}
+                  onChange={(e) =>
+                    setLandRegistryForm({
+                      ...landRegistryForm,
+                      livroOuFicha: e.target.value,
+                    })
+                  }
+                />
+              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">

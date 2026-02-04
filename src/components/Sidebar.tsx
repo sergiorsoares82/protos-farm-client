@@ -48,7 +48,7 @@ const farmMenuItems: NavItem[] = [
     roles: 'all',
   },
   {
-    name: 'Cadastro fundiário',
+    name: 'Imóveis rurais e matrículas',
     path: '/rural-properties',
     icon: Landmark,
     roles: 'all',
