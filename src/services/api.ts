@@ -136,6 +136,40 @@ export interface Person {
   updatedAt: string;
 }
 
+// Farm (Fazenda) Types
+export interface FarmOwnerItem {
+  personId: string;
+  personName: string;
+  ownershipType?: string;
+}
+
+export interface Farm {
+  id: string;
+  tenantId: string;
+  name: string;
+  location?: string;
+  totalArea?: number;
+  owners: FarmOwnerItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateFarmRequest {
+  name: string;
+  location?: string;
+  totalArea?: number;
+  ownerIds: string[];
+  ownershipTypeByPersonId?: Record<string, string>;
+}
+
+export interface UpdateFarmRequest {
+  name?: string;
+  location?: string;
+  totalArea?: number;
+  ownerIds?: string[];
+  ownershipTypeByPersonId?: Record<string, string>;
+}
+
 // Organization Types
 export interface Organization {
   id: string;
@@ -850,12 +884,13 @@ export interface UpdateBankAccountRequest {
 }
 
 // API Configuration
-// In development, default to localhost backend.
-// In production (build on Vercel, etc.), default to your public API URL,
-// but allow overriding via VITE_API_URL if you prefer.
+// In development, requests go directly to the backend (default http://localhost:3000).
+// Override with VITE_API_URL if your backend runs on another host/port.
+// In production, use your public API URL.
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.PROD ? 'https://api.protosfarm.com.br' : 'http://localhost:3000');
+  import.meta.env.VITE_API_URL !== undefined && import.meta.env.VITE_API_URL !== ''
+    ? import.meta.env.VITE_API_URL
+    : (import.meta.env.PROD ? 'https://api.protosfarm.com.br' : 'http://localhost:3000');
 
 // API Service
 class ApiService {
@@ -1056,6 +1091,53 @@ class ApiService {
     });
     const data = await this.handleResponse<{ success: boolean; data: Person }>(response);
     return data.data;
+  }
+
+  // Farm (Fazenda) APIs
+  async getFarms(): Promise<Farm[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/farms`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: Farm[] }>(response);
+    return data.data;
+  }
+
+  async getFarm(id: string): Promise<Farm> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/farms/${id}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: Farm }>(response);
+    return data.data;
+  }
+
+  async createFarm(body: CreateFarmRequest): Promise<Farm> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/farms`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(body),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: Farm }>(response);
+    return data.data;
+  }
+
+  async updateFarm(id: string, body: UpdateFarmRequest): Promise<Farm> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/farms/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(body),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: Farm }>(response);
+    return data.data;
+  }
+
+  async deleteFarm(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/farms/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    await this.handleResponse<{ success: boolean }>(response);
   }
 
   // Organization Management

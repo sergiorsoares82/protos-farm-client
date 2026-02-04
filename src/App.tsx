@@ -29,6 +29,7 @@ import { Machines } from '@/pages/Machines';
 import { Assets } from '@/pages/Assets';
 import { Funcionarios } from '@/pages/Funcionarios';
 import { Proprietarios } from '@/pages/Proprietarios';
+import { Fazendas } from '@/pages/Fazendas';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
@@ -78,6 +79,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Proprietarios />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/fazendas"
+            element={
+              <ProtectedRoute>
+                <Fazendas />
               </ProtectedRoute>
             }
           />

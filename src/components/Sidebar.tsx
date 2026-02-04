@@ -46,6 +46,7 @@ const peopleMenuItems: NavItem[] = [
   { name: 'Funcionários', path: '/funcionarios', icon: Briefcase, roles: 'all' },
   { name: 'Clientes e Fornecedores', path: '/clients-suppliers', icon: Building2, roles: 'all' },
   { name: 'Proprietários', path: '/proprietarios', icon: Sprout, roles: 'all' },
+  { name: 'Fazendas', path: '/fazendas', icon: MapPin, roles: 'all' },
   { name: 'Usuários', path: '/users', icon: UserCog, roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN] },
 ];
 

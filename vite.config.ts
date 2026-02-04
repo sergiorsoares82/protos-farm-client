@@ -19,14 +19,14 @@ export default defineConfig({
     watch: {
       usePolling: true,
     },
-    // Proxy API requests to backend (alternative to CORS)
-    // Uncomment this if you're having CORS issues
-    // proxy: {
-    //   '/api': {
-    //     target: 'http://localhost:3000',
-    //     changeOrigin: true,
-    //   },
-    // },
+    // Proxy /api to backend so requests from the app (same origin) reach the server.
+    // Backend must be running (e.g. npm run dev in server/ on port 3000).
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     host: '0.0.0.0',

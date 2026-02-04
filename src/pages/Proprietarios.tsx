@@ -26,7 +26,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Users,
   Plus,
   Edit,
   Trash2,
@@ -34,7 +33,6 @@ import {
   Phone,
   Search,
   Loader2,
-  MapPin,
   Sprout,
   X,
 } from 'lucide-react';
@@ -49,11 +47,8 @@ import {
 
 const ITEMS_PER_PAGE = 10;
 
-const OWNERSHIP_TYPE_LABELS: Record<string, string> = {
-  OWNED: 'Própria',
-  LEASED: 'Arrendada',
-  PARTNERSHIP: 'Parceria',
-};
+/** Placeholder enviado ao backend (fazenda será vinculada depois pelo cadastro de fazenda). */
+const FARM_OWNER_PLACEHOLDER_FARM_NAME = 'A definir';
 
 export const Proprietarios = () => {
   const [persons, setPersons] = useState<Person[]>([]);
@@ -72,10 +67,6 @@ export const Proprietarios = () => {
     cpfCnpj: '',
     email: '',
     phone: '',
-    farmName: '',
-    farmLocation: '',
-    totalArea: '' as string | number,
-    ownershipType: '',
   });
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -90,8 +81,7 @@ export const Proprietarios = () => {
     return farmOwners.filter(
       (p) =>
         p.nome.toLowerCase().includes(term) ||
-        p.email.toLowerCase().includes(term) ||
-        (p.roles?.FARM_OWNER?.farmName ?? '').toLowerCase().includes(term)
+        p.email.toLowerCase().includes(term)
     );
   }, [farmOwners, searchTerm]);
 
@@ -130,10 +120,6 @@ export const Proprietarios = () => {
       cpfCnpj: '',
       email: '',
       phone: '',
-      farmName: '',
-      farmLocation: '',
-      totalArea: '',
-      ownershipType: '',
     });
     setFieldErrors({});
     setFormError(null);
@@ -152,7 +138,6 @@ export const Proprietarios = () => {
         errors.email = 'E-mail não pode conter pontos consecutivos (..)';
       }
     }
-    if (!formData.farmName.trim()) errors.farmName = 'Nome da fazenda é obrigatório';
     setFieldErrors(errors);
     setFormError(Object.keys(errors).length > 0 ? 'Corrija os campos indicados.' : null);
     return Object.keys(errors).length === 0;
@@ -171,14 +156,7 @@ export const Proprietarios = () => {
         roles: [
           {
             type: PersonRole.FARM_OWNER,
-            data: {
-              farmName: formData.farmName.trim(),
-              ...(formData.farmLocation.trim() && { farmLocation: formData.farmLocation.trim() }),
-              ...(formData.totalArea !== '' && formData.totalArea !== null && {
-                totalArea: Number(formData.totalArea),
-              }),
-              ...(formData.ownershipType && { ownershipType: formData.ownershipType }),
-            },
+            data: { farmName: FARM_OWNER_PLACEHOLDER_FARM_NAME },
           },
         ],
       };
@@ -202,7 +180,6 @@ export const Proprietarios = () => {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) errors.email = 'Informe um e-mail válido';
     }
-    if (!formData.farmName.trim()) errors.farmName = 'Nome da fazenda é obrigatório';
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       return;
@@ -219,12 +196,7 @@ export const Proprietarios = () => {
       await apiService.updatePerson(selectedPerson.id, updates);
       await apiService.removeRole(selectedPerson.id, PersonRole.FARM_OWNER);
       await apiService.assignRole(selectedPerson.id, PersonRole.FARM_OWNER, {
-        farmName: formData.farmName.trim(),
-        ...(formData.farmLocation.trim() && { farmLocation: formData.farmLocation.trim() }),
-        ...(formData.totalArea !== '' && formData.totalArea != null && {
-          totalArea: Number(formData.totalArea),
-        }),
-        ...(formData.ownershipType && { ownershipType: formData.ownershipType }),
+        farmName: FARM_OWNER_PLACEHOLDER_FARM_NAME,
       });
       await loadPersons();
       setShowEditModal(false);
@@ -247,7 +219,6 @@ export const Proprietarios = () => {
   };
 
   const openEdit = (person: Person) => {
-    const farmOwner = person.roles?.FARM_OWNER;
     setSelectedPerson(person);
     setFormData({
       nome: person.nome,
@@ -255,11 +226,6 @@ export const Proprietarios = () => {
       cpfCnpj: person.cpfCnpj ?? '',
       email: person.email,
       phone: person.phone ?? '',
-      farmName: farmOwner?.farmName ?? '',
-      farmLocation: farmOwner?.farmLocation ?? '',
-      totalArea:
-        farmOwner?.totalArea != null ? String(farmOwner.totalArea) : '',
-      ownershipType: farmOwner?.ownershipType ?? '',
     });
     setFieldErrors({});
     setShowEditModal(true);
@@ -307,7 +273,7 @@ export const Proprietarios = () => {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome, e-mail ou nome da fazenda..."
+            placeholder="Buscar por nome ou e-mail..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -327,37 +293,13 @@ export const Proprietarios = () => {
           </Card>
         ) : (
           <div className="grid gap-4">
-            {paginatedFarmOwners.map((person) => {
-              const farmOwner = person.roles?.FARM_OWNER;
-              return (
+            {paginatedFarmOwners.map((person) => (
                 <Card key={person.id}>
                   <CardContent className="pt-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="space-y-1">
                         <h3 className="text-lg font-semibold">{person.nome}</h3>
-                        {farmOwner && (
-                          <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Sprout className="h-4 w-4" />
-                              {farmOwner.farmName}
-                            </span>
-                            {farmOwner.farmLocation && (
-                              <span className="flex items-center gap-1">
-                                <MapPin className="h-4 w-4" />
-                                {farmOwner.farmLocation}
-                              </span>
-                            )}
-                            {farmOwner.totalArea != null && (
-                              <span>Área: {Number(farmOwner.totalArea).toLocaleString('pt-BR')} ha</span>
-                            )}
-                            {farmOwner.ownershipType && (
-                              <span>
-                                {OWNERSHIP_TYPE_LABELS[farmOwner.ownershipType] ?? farmOwner.ownershipType}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        <div className="flex flex-wrap gap-4 mt-2 text-sm">
+                        <div className="flex flex-wrap gap-4 text-sm">
                           <span className="flex items-center gap-1">
                             <Mail className="h-4 w-4" />
                             {person.email}
@@ -392,8 +334,7 @@ export const Proprietarios = () => {
                     </div>
                   </CardContent>
                 </Card>
-              );
-            })}
+            ))}
           </div>
         )}
 
@@ -444,7 +385,7 @@ export const Proprietarios = () => {
           <DialogHeader>
             <DialogTitle>Cadastrar proprietário</DialogTitle>
             <DialogDescription>
-              Preencha os dados da pessoa e da fazenda. Campos com * são obrigatórios.
+              Preencha os dados da pessoa. A vinculação com fazendas será feita no cadastro de fazenda. Campos com * são obrigatórios.
             </DialogDescription>
           </DialogHeader>
           {formError && (
@@ -525,69 +466,6 @@ export const Proprietarios = () => {
                 </div>
               </div>
             </div>
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-muted-foreground">Dados da fazenda</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2 space-y-2">
-                  <Label htmlFor="create-farmName">Nome da fazenda *</Label>
-                  <Input
-                    id="create-farmName"
-                    value={formData.farmName}
-                    onChange={(e) => {
-                      setFormData({ ...formData, farmName: e.target.value });
-                      if (fieldErrors.farmName) setFieldErrors({ ...fieldErrors, farmName: '' });
-                    }}
-                    placeholder="Ex.: Fazenda Santa Maria"
-                    className={fieldErrors.farmName ? 'border-destructive' : ''}
-                  />
-                  {fieldErrors.farmName && (
-                    <p className="text-sm text-destructive">{fieldErrors.farmName}</p>
-                  )}
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="create-farmLocation">Localização</Label>
-                  <Input
-                    id="create-farmLocation"
-                    value={formData.farmLocation}
-                    onChange={(e) => setFormData({ ...formData, farmLocation: e.target.value })}
-                    placeholder="Ex.: Município, Estado"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="create-totalArea">Área total (ha)</Label>
-                  <Input
-                    id="create-totalArea"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.totalArea}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        totalArea: e.target.value === '' ? '' : e.target.value,
-                      })
-                    }
-                    placeholder="0,00"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="create-ownershipType">Tipo de posse</Label>
-                  <Select
-                    value={formData.ownershipType}
-                    onValueChange={(v) => setFormData({ ...formData, ownershipType: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="OWNED">Própria</SelectItem>
-                      <SelectItem value="LEASED">Arrendada</SelectItem>
-                      <SelectItem value="PARTNERSHIP">Parceria</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowCreateModal(false); resetForm(); }}>
@@ -613,7 +491,7 @@ export const Proprietarios = () => {
           <DialogHeader>
             <DialogTitle>Editar proprietário</DialogTitle>
             <DialogDescription>
-              Altere os dados da pessoa e da fazenda. Campos com * são obrigatórios.
+              Altere os dados da pessoa. A vinculação com fazendas será feita no cadastro de fazenda. Campos com * são obrigatórios.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
@@ -680,69 +558,6 @@ export const Proprietarios = () => {
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="(00) 00000-0000"
                   />
-                </div>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-muted-foreground">Dados da fazenda</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2 space-y-2">
-                  <Label htmlFor="edit-farmName">Nome da fazenda *</Label>
-                  <Input
-                    id="edit-farmName"
-                    value={formData.farmName}
-                    onChange={(e) => {
-                      setFormData({ ...formData, farmName: e.target.value });
-                      if (fieldErrors.farmName) setFieldErrors({ ...fieldErrors, farmName: '' });
-                    }}
-                    placeholder="Ex.: Fazenda Santa Maria"
-                    className={fieldErrors.farmName ? 'border-destructive' : ''}
-                  />
-                  {fieldErrors.farmName && (
-                    <p className="text-sm text-destructive">{fieldErrors.farmName}</p>
-                  )}
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="edit-farmLocation">Localização</Label>
-                  <Input
-                    id="edit-farmLocation"
-                    value={formData.farmLocation}
-                    onChange={(e) => setFormData({ ...formData, farmLocation: e.target.value })}
-                    placeholder="Ex.: Município, Estado"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-totalArea">Área total (ha)</Label>
-                  <Input
-                    id="edit-totalArea"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.totalArea}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        totalArea: e.target.value === '' ? '' : e.target.value,
-                      })
-                    }
-                    placeholder="0,00"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-ownershipType">Tipo de posse</Label>
-                  <Select
-                    value={formData.ownershipType}
-                    onValueChange={(v) => setFormData({ ...formData, ownershipType: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="OWNED">Própria</SelectItem>
-                      <SelectItem value="LEASED">Arrendada</SelectItem>
-                      <SelectItem value="PARTNERSHIP">Parceria</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
             </div>
