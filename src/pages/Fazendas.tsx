@@ -19,13 +19,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Plus,
   Edit,
   Trash2,
@@ -33,28 +26,22 @@ import {
   Loader2,
   Sprout,
   MapPin,
-  Users,
   X,
+  Landmark,
 } from 'lucide-react';
 import {
   apiService,
   Farm,
-  Person,
+  RuralProperty,
   CreateFarmRequest,
   UpdateFarmRequest,
 } from '@/services/api';
 
 const ITEMS_PER_PAGE = 10;
 
-const OWNERSHIP_TYPE_LABELS: Record<string, string> = {
-  OWNED: 'Própria',
-  LEASED: 'Arrendada',
-  PARTNERSHIP: 'Parceria',
-};
-
 export const Fazendas = () => {
   const [farms, setFarms] = useState<Farm[]>([]);
-  const [persons, setPersons] = useState<Person[]>([]);
+  const [ruralProperties, setRuralProperties] = useState<RuralProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -68,16 +55,10 @@ export const Fazendas = () => {
     name: '',
     location: '',
     totalArea: '' as string | number,
-    ownerIds: [] as string[],
-    ownershipTypeByPersonId: {} as Record<string, string>,
+    ruralPropertyIds: [] as string[],
   });
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  const farmOwners = useMemo(
-    () => persons.filter((p) => p.roles?.FARM_OWNER),
-    [persons]
-  );
 
   const filteredFarms = useMemo(() => {
     const term = searchTerm.toLowerCase();
@@ -85,7 +66,11 @@ export const Fazendas = () => {
       (f) =>
         f.name.toLowerCase().includes(term) ||
         (f.location ?? '').toLowerCase().includes(term) ||
-        f.owners.some((o) => o.personName.toLowerCase().includes(term))
+        (f.ruralProperties ?? []).some(
+          (rp) =>
+            rp.nomeImovelIncra.toLowerCase().includes(term) ||
+            (rp.codigoSncr ?? '').toLowerCase().includes(term)
+        )
     );
   }, [farms, searchTerm]);
 
@@ -107,12 +92,12 @@ export const Fazendas = () => {
     try {
       setLoading(true);
       setError(null);
-      const [farmsData, personsData] = await Promise.all([
+      const [farmsData, ruralPropertiesData] = await Promise.all([
         apiService.getFarms(),
-        apiService.getPersons(),
+        apiService.getRuralProperties(),
       ]);
       setFarms(farmsData);
-      setPersons(personsData);
+      setRuralProperties(ruralPropertiesData);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar fazendas');
       console.error('Error loading farms:', err);
@@ -126,8 +111,7 @@ export const Fazendas = () => {
       name: '',
       location: '',
       totalArea: '',
-      ownerIds: [],
-      ownershipTypeByPersonId: {},
+      ruralPropertyIds: [],
     });
     setFieldErrors({});
     setFormError(null);
@@ -151,10 +135,7 @@ export const Fazendas = () => {
         ...(formData.totalArea !== '' && formData.totalArea != null && {
           totalArea: Number(formData.totalArea),
         }),
-        ownerIds: formData.ownerIds,
-        ...(Object.keys(formData.ownershipTypeByPersonId).length > 0 && {
-          ownershipTypeByPersonId: formData.ownershipTypeByPersonId,
-        }),
+        ruralPropertyIds: formData.ruralPropertyIds,
       };
       await apiService.createFarm(body);
       await loadData();
@@ -182,10 +163,7 @@ export const Fazendas = () => {
         ...(formData.totalArea !== undefined && {
           totalArea: formData.totalArea === '' ? undefined : Number(formData.totalArea),
         }),
-        ownerIds: formData.ownerIds,
-        ...(Object.keys(formData.ownershipTypeByPersonId).length > 0 && {
-          ownershipTypeByPersonId: formData.ownershipTypeByPersonId,
-        }),
+        ruralPropertyIds: formData.ruralPropertyIds,
       };
       await apiService.updateFarm(selectedFarm.id, body);
       await loadData();
@@ -210,34 +188,22 @@ export const Fazendas = () => {
 
   const openEdit = (farm: Farm) => {
     setSelectedFarm(farm);
-    const ownershipTypeByPersonId: Record<string, string> = {};
-    farm.owners.forEach((o) => {
-      if (o.ownershipType) ownershipTypeByPersonId[o.personId] = o.ownershipType;
-    });
     setFormData({
       name: farm.name,
       location: farm.location ?? '',
       totalArea: farm.totalArea != null ? String(farm.totalArea) : '',
-      ownerIds: farm.owners.map((o) => o.personId),
-      ownershipTypeByPersonId,
+      ruralPropertyIds: (farm.ruralProperties ?? []).map((rp) => rp.id),
     });
     setFieldErrors({});
     setShowEditModal(true);
   };
 
-  const toggleOwner = (personId: string, checked: boolean) => {
+  const toggleRuralProperty = (ruralPropertyId: string, checked: boolean) => {
     setFormData((prev) => ({
       ...prev,
-      ownerIds: checked
-        ? [...prev.ownerIds, personId]
-        : prev.ownerIds.filter((id) => id !== personId),
-    }));
-  };
-
-  const setOwnershipType = (personId: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      ownershipTypeByPersonId: { ...prev.ownershipTypeByPersonId, [personId]: value },
+      ruralPropertyIds: checked
+        ? [...prev.ruralPropertyIds, ruralPropertyId]
+        : prev.ruralPropertyIds.filter((id) => id !== ruralPropertyId),
     }));
   };
 
@@ -319,15 +285,10 @@ export const Fazendas = () => {
                         {farm.totalArea != null && (
                           <span>Área: {Number(farm.totalArea).toLocaleString('pt-BR')} ha</span>
                         )}
-                        {farm.owners.length > 0 && (
+                        {(farm.ruralProperties ?? []).length > 0 && (
                           <span className="flex items-center gap-1">
-                            <Users className="h-4 w-4" />
-                            {farm.owners.map((o) => o.personName).join(', ')}
-                            {farm.owners.some((o) => o.ownershipType) && (
-                              <span className="text-muted-foreground">
-                                ({farm.owners.filter((o) => o.ownershipType).map((o) => OWNERSHIP_TYPE_LABELS[o.ownershipType!] ?? o.ownershipType).join(', ')})
-                              </span>
-                            )}
+                            <Landmark className="h-4 w-4" />
+                            {(farm.ruralProperties ?? []).map((rp) => rp.codigoSncr || rp.nomeImovelIncra).join(', ')}
                           </span>
                         )}
                       </div>
@@ -384,7 +345,7 @@ export const Fazendas = () => {
           <DialogHeader>
             <DialogTitle>Cadastrar fazenda</DialogTitle>
             <DialogDescription>
-              Preencha os dados da fazenda e selecione um ou mais proprietários. Campos com * são obrigatórios.
+              Preencha os dados da fazenda e vincule um ou mais imóveis rurais. Os proprietários são vinculados às matrículas em Imóveis Rurais. Campos com * são obrigatórios.
             </DialogDescription>
           </DialogHeader>
           {formError && (
@@ -424,36 +385,23 @@ export const Fazendas = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label>Proprietários</Label>
-              {farmOwners.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Cadastre proprietários em Pessoas / Proprietários antes de vincular à fazenda.</p>
+              <Label>Imóveis rurais</Label>
+              {ruralProperties.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Cadastre imóveis rurais em Imóveis Rurais antes de vincular à fazenda.</p>
               ) : (
                 <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
-                  {farmOwners.map((p) => (
-                    <div key={p.id} className="flex items-center gap-2">
+                  {ruralProperties.map((rp) => (
+                    <div key={rp.id} className="flex items-center gap-2">
                       <input
                         type="checkbox"
-                        id={`create-owner-${p.id}`}
-                        checked={formData.ownerIds.includes(p.id)}
-                        onChange={(e) => toggleOwner(p.id, e.target.checked)}
+                        id={`create-rp-${rp.id}`}
+                        checked={formData.ruralPropertyIds.includes(rp.id)}
+                        onChange={(e) => toggleRuralProperty(rp.id, e.target.checked)}
                         className="rounded"
                       />
-                      <Label htmlFor={`create-owner-${p.id}`} className="flex-1 font-normal cursor-pointer">{p.nome}</Label>
-                      {formData.ownerIds.includes(p.id) && (
-                        <Select
-                          value={formData.ownershipTypeByPersonId[p.id] ?? ''}
-                          onValueChange={(v) => setOwnershipType(p.id, v)}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue placeholder="Posse" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="OWNED">Própria</SelectItem>
-                            <SelectItem value="LEASED">Arrendada</SelectItem>
-                            <SelectItem value="PARTNERSHIP">Parceria</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
+                      <Label htmlFor={`create-rp-${rp.id}`} className="flex-1 font-normal cursor-pointer">
+                        {rp.codigoSncr ? `${rp.codigoSncr} – ` : ''}{rp.nomeImovelIncra}
+                      </Label>
                     </div>
                   ))}
                 </div>
@@ -473,7 +421,7 @@ export const Fazendas = () => {
           <DialogHeader>
             <DialogTitle>Editar fazenda</DialogTitle>
             <DialogDescription>
-              Altere os dados da fazenda e os proprietários vinculados.
+              Altere os dados da fazenda e os imóveis rurais vinculados.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -510,36 +458,23 @@ export const Fazendas = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label>Proprietários</Label>
-              {farmOwners.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhum proprietário cadastrado.</p>
+              <Label>Imóveis rurais</Label>
+              {ruralProperties.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum imóvel rural cadastrado.</p>
               ) : (
                 <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
-                  {farmOwners.map((p) => (
-                    <div key={p.id} className="flex items-center gap-2">
+                  {ruralProperties.map((rp) => (
+                    <div key={rp.id} className="flex items-center gap-2">
                       <input
                         type="checkbox"
-                        id={`edit-owner-${p.id}`}
-                        checked={formData.ownerIds.includes(p.id)}
-                        onChange={(e) => toggleOwner(p.id, e.target.checked)}
+                        id={`edit-rp-${rp.id}`}
+                        checked={formData.ruralPropertyIds.includes(rp.id)}
+                        onChange={(e) => toggleRuralProperty(rp.id, e.target.checked)}
                         className="rounded"
                       />
-                      <Label htmlFor={`edit-owner-${p.id}`} className="flex-1 font-normal cursor-pointer">{p.nome}</Label>
-                      {formData.ownerIds.includes(p.id) && (
-                        <Select
-                          value={formData.ownershipTypeByPersonId[p.id] ?? ''}
-                          onValueChange={(v) => setOwnershipType(p.id, v)}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue placeholder="Posse" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="OWNED">Própria</SelectItem>
-                            <SelectItem value="LEASED">Arrendada</SelectItem>
-                            <SelectItem value="PARTNERSHIP">Parceria</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
+                      <Label htmlFor={`edit-rp-${rp.id}`} className="flex-1 font-normal cursor-pointer">
+                        {rp.codigoSncr ? `${rp.codigoSncr} – ` : ''}{rp.nomeImovelIncra}
+                      </Label>
                     </div>
                   ))}
                 </div>

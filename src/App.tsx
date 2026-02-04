@@ -31,6 +31,7 @@ import { Funcionarios } from '@/pages/Funcionarios';
 import { Proprietarios } from '@/pages/Proprietarios';
 import { Fazendas } from '@/pages/Fazendas';
 import { RuralProperties } from '@/pages/RuralProperties';
+import { LandRegistries } from '@/pages/LandRegistries';
 import { ProductionSites } from '@/pages/ProductionSites';
 import { ExplorationContracts } from '@/pages/ExplorationContracts';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -103,6 +104,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <RuralProperties />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/land-registries"
+            element={
+              <ProtectedRoute>
+                <LandRegistries />
               </ProtectedRoute>
             }
           />

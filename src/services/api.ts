@@ -136,11 +136,13 @@ export interface Person {
   updatedAt: string;
 }
 
-// Farm (Fazenda) Types
-export interface FarmOwnerItem {
-  personId: string;
-  personName: string;
-  ownershipType?: string;
+// Farm (Fazenda) Types – proprietários são vinculados à matrícula (Imóveis Rurais), não à fazenda
+export interface FarmRuralPropertyItem {
+  id: string;
+  nomeImovelIncra: string;
+  codigoSncr?: string | null;
+  municipio?: string | null;
+  uf?: string | null;
 }
 
 export interface Farm {
@@ -149,7 +151,7 @@ export interface Farm {
   name: string;
   location?: string;
   totalArea?: number;
-  owners: FarmOwnerItem[];
+  ruralProperties: FarmRuralPropertyItem[];
   createdAt: string;
   updatedAt: string;
 }
@@ -158,16 +160,14 @@ export interface CreateFarmRequest {
   name: string;
   location?: string;
   totalArea?: number;
-  ownerIds: string[];
-  ownershipTypeByPersonId?: Record<string, string>;
+  ruralPropertyIds?: string[];
 }
 
 export interface UpdateFarmRequest {
   name?: string;
   location?: string;
   totalArea?: number;
-  ownerIds?: string[];
-  ownershipTypeByPersonId?: Record<string, string>;
+  ruralPropertyIds?: string[];
 }
 
 // Fundiário – Imóvel, Matrícula, Propriedade
@@ -192,6 +192,16 @@ export interface CreateRuralPropertyRequest {
   uf?: string;
 }
 
+export interface LandRegistryOwnerItem {
+  id: string;
+  personId: string;
+  personName: string;
+  percentualPosse?: number | null;
+  dataAquisicao?: string | null;
+  dataBaixa?: string | null;
+  tipoAquisicao?: string | null;
+}
+
 export interface LandRegistry {
   id: string;
   tenantId: string;
@@ -204,6 +214,7 @@ export interface LandRegistry {
   areaHa?: number | null;
   municipio?: string | null;
   uf?: string | null;
+  owners: LandRegistryOwnerItem[];
   createdAt: string;
   updatedAt: string;
 }
@@ -1363,7 +1374,7 @@ class ApiService {
   async upsertLandRegistryOwners(
     landRegistryId: string,
     body: UpsertLandRegistryOwnersRequest,
-  ): Promise<PropertyOwnership[]> {
+  ): Promise<LandRegistry> {
     const response = await this.fetchWithRetry(
       `${this.baseUrl}/api/land-registries/${landRegistryId}/owners`,
       {
@@ -1372,7 +1383,7 @@ class ApiService {
         body: JSON.stringify(body),
       },
     );
-    const data = await this.handleResponse<{ success: boolean; data: PropertyOwnership[] }>(
+    const data = await this.handleResponse<{ success: boolean; data: LandRegistry }>(
       response,
     );
     return data.data;

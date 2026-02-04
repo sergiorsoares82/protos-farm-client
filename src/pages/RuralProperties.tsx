@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import {
   Card,
@@ -18,20 +19,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Search, Loader2, MapPin, Plus, X, FileText } from 'lucide-react';
 import {
   apiService,
   RuralProperty,
-  LandRegistry,
   CreateRuralPropertyRequest,
-  CreateLandRegistryRequest,
 } from '@/services/api';
 
 const ITEMS_PER_PAGE = 10;
@@ -55,15 +47,11 @@ function maskCib(value: string): string {
 
 export const RuralProperties = () => {
   const [ruralProperties, setRuralProperties] = useState<RuralProperty[]>([]);
-  const [landRegistries, setLandRegistries] = useState<LandRegistry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-
   const [showCreatePropertyModal, setShowCreatePropertyModal] = useState(false);
-  const [showCreateLandRegistryModal, setShowCreateLandRegistryModal] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -71,18 +59,6 @@ export const RuralProperties = () => {
     nomeImovelIncra: '',
     codigoSncr: '',
     nirf: '',
-    municipio: '',
-    uf: '',
-  });
-
-  const [landRegistryForm, setLandRegistryForm] = useState({
-    ruralPropertyId: '',
-    numeroMatricula: '',
-    cartorio: '',
-    dataRegistro: '',
-    registro: '',
-    livroOuFicha: '',
-    areaHa: '' as string | number,
     municipio: '',
     uf: '',
   });
@@ -99,38 +75,21 @@ export const RuralProperties = () => {
     try {
       setLoading(true);
       setError(null);
-      const [propsData, regsData] = await Promise.all([
-        apiService.getRuralProperties(),
-        apiService.getLandRegistries(),
-      ]);
+      const propsData = await apiService.getRuralProperties();
       setRuralProperties(propsData);
-      setLandRegistries(regsData);
     } catch (err: unknown) {
-      console.error('Error loading rural properties/land registries:', err);
-      setError(
-        err instanceof Error ? err.message : 'Falha ao carregar cadastro fundiário',
-      );
+      console.error('Error loading rural properties:', err);
+      setError(err instanceof Error ? err.message : 'Falha ao carregar imóveis rurais');
     } finally {
       setLoading(false);
     }
   };
 
-  const resetForms = () => {
+  const resetForm = () => {
     setPropertyForm({
       nomeImovelIncra: '',
       codigoSncr: '',
       nirf: '',
-      municipio: '',
-      uf: '',
-    });
-    setLandRegistryForm({
-      ruralPropertyId: '',
-      numeroMatricula: '',
-      cartorio: '',
-      dataRegistro: '',
-      registro: '',
-      livroOuFicha: '',
-      areaHa: '',
       municipio: '',
       uf: '',
     });
@@ -164,7 +123,6 @@ export const RuralProperties = () => {
       setFormError('Corrija os campos indicados.');
       return;
     }
-
     try {
       setFormError(null);
       const body: CreateRuralPropertyRequest = {
@@ -177,59 +135,10 @@ export const RuralProperties = () => {
       await apiService.createRuralProperty(body);
       await loadData();
       setShowCreatePropertyModal(false);
-      resetForms();
+      resetForm();
     } catch (err: unknown) {
       console.error('Error creating rural property:', err);
-      setFormError(
-        err instanceof Error ? err.message : 'Falha ao cadastrar imóvel rural',
-      );
-    }
-  };
-
-  const handleCreateLandRegistry = async () => {
-    const errors: Record<string, string> = {};
-    if (!landRegistryForm.numeroMatricula.trim()) {
-      errors.numeroMatricula = 'Número da matrícula é obrigatório';
-    }
-    if (!landRegistryForm.cartorio.trim()) {
-      errors.cartorio = 'Cartório é obrigatório';
-    }
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) {
-      setFormError('Corrija os campos indicados.');
-      return;
-    }
-
-    try {
-      setFormError(null);
-      const body: CreateLandRegistryRequest = {
-        ...(landRegistryForm.ruralPropertyId && {
-          ruralPropertyId: landRegistryForm.ruralPropertyId,
-        }),
-        numeroMatricula: landRegistryForm.numeroMatricula.trim(),
-        cartorio: landRegistryForm.cartorio.trim(),
-        ...(landRegistryForm.dataRegistro.trim() && {
-          dataRegistro: landRegistryForm.dataRegistro.trim(),
-        }),
-        ...(landRegistryForm.registro.trim() && { registro: landRegistryForm.registro.trim() }),
-        ...(landRegistryForm.livroOuFicha.trim() && {
-          livroOuFicha: landRegistryForm.livroOuFicha.trim(),
-        }),
-        ...(landRegistryForm.areaHa !== '' && landRegistryForm.areaHa != null && {
-          areaHa: Number(landRegistryForm.areaHa),
-        }),
-        ...(landRegistryForm.municipio.trim() && { municipio: landRegistryForm.municipio }),
-        ...(landRegistryForm.uf.trim() && { uf: landRegistryForm.uf }),
-      };
-      await apiService.createLandRegistry(body);
-      await loadData();
-      setShowCreateLandRegistryModal(false);
-      resetForms();
-    } catch (err: unknown) {
-      console.error('Error creating land registry:', err);
-      setFormError(
-        err instanceof Error ? err.message : 'Falha ao cadastrar matrícula',
-      );
+      setFormError(err instanceof Error ? err.message : 'Falha ao cadastrar imóvel rural');
     }
   };
 
@@ -248,29 +157,19 @@ export const RuralProperties = () => {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Cadastro fundiário</h1>
+            <h1 className="text-3xl font-bold">Imóveis rurais</h1>
             <p className="text-muted-foreground">
-              Gerencie imóveis rurais (INCRA) e matrículas de cartório que compõem o seu
-              patrimônio de terras.
+              Cadastre as unidades de cadastro rural (INCRA/CNIR) que compõem o seu patrimônio. As matrículas de cartório são gerenciadas na tela Matrículas.
             </p>
           </div>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                resetForms();
-                setShowCreateLandRegistryModal(true);
-              }}
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              Nova matrícula
+            <Button variant="outline" asChild>
+              <Link to="/land-registries">
+                <FileText className="mr-2 h-4 w-4" />
+                Matrículas
+              </Link>
             </Button>
-            <Button
-              onClick={() => {
-                resetForms();
-                setShowCreatePropertyModal(true);
-              }}
-            >
+            <Button onClick={() => { resetForm(); setShowCreatePropertyModal(true); }}>
               <Plus className="mr-2 h-4 w-4" />
               Novo imóvel rural
             </Button>
@@ -282,11 +181,7 @@ export const RuralProperties = () => {
             <CardContent className="pt-6">
               <div className="flex justify-between items-center">
                 <p className="text-sm text-destructive">{error}</p>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setError(null)}
-                >
+                <Button variant="ghost" size="icon" onClick={() => setError(null)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -304,7 +199,6 @@ export const RuralProperties = () => {
           />
         </div>
 
-        {/* Lista de imóveis rurais */}
         {paginatedProperties.length === 0 ? (
           <Card>
             <CardContent className="pt-6 text-center py-12">
@@ -333,14 +227,6 @@ export const RuralProperties = () => {
                             {[prop.municipio, prop.uf].filter(Boolean).join(' / ')}
                           </span>
                         )}
-                        <span>
-                          Matrículas:{' '}
-                          {
-                            landRegistries.filter(
-                              (lr) => lr.ruralPropertyId === prop.id,
-                            ).length
-                          }
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -352,98 +238,40 @@ export const RuralProperties = () => {
 
         {totalPages > 1 && (
           <div className="flex justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            >
+            <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
               Anterior
             </Button>
             <span className="flex items-center px-4 text-sm text-muted-foreground">
               Página {currentPage} de {totalPages}
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            >
+            <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>
               Próxima
             </Button>
           </div>
         )}
 
-        {/* Lista resumida de matrículas */}
         <Card>
           <CardHeader>
-            <CardTitle>Matrículas cadastradas</CardTitle>
-            <CardDescription>
-              Visão rápida das matrículas de cartório associadas aos imóveis.
-            </CardDescription>
+            <CardTitle>Resumo</CardTitle>
+            <CardDescription>Total de imóveis rurais cadastrados</CardDescription>
           </CardHeader>
           <CardContent>
-            {landRegistries.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Nenhuma matrícula cadastrada até o momento.
-              </p>
-            ) : (
-              <div className="space-y-2 max-h-80 overflow-y-auto">
-                {landRegistries.map((lr) => {
-                  const prop = lr.ruralPropertyId
-                    ? ruralProperties.find((p) => p.id === lr.ruralPropertyId)
-                    : undefined;
-                  return (
-                    <div
-                      key={lr.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2 last:border-b-0"
-                    >
-                      <div className="space-y-0.5">
-                        <p className="font-medium">
-                          Matrícula {lr.numeroMatricula} – {lr.cartorio}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {prop
-                            ? `Imóvel: ${prop.nomeImovelIncra}`
-                            : 'Imóvel não vinculado'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {[lr.municipio, lr.uf].filter(Boolean).join(' / ')}
-                          {lr.areaHa != null &&
-                            ` • Área informada: ${Number(lr.areaHa).toLocaleString(
-                              'pt-BR',
-                            )} ha`}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <p className="text-2xl font-bold">{ruralProperties.length}</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Modal: Novo imóvel rural */}
-      <Dialog
-        open={showCreatePropertyModal}
-        onOpenChange={(open) => {
-          setShowCreatePropertyModal(open);
-          if (!open) resetForms();
-        }}
-      >
+      <Dialog open={showCreatePropertyModal} onOpenChange={(open) => { setShowCreatePropertyModal(open); if (!open) resetForm(); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo imóvel rural</DialogTitle>
             <DialogDescription>
-              Cadastre a unidade de cadastro rural (INCRA/CNIR) que agrupa uma ou mais
-              matrículas.
+              Cadastre a unidade de cadastro rural (INCRA/CNIR) que agrupa uma ou mais matrículas.
             </DialogDescription>
           </DialogHeader>
           {formError && (
-            <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
-              {formError}
-            </div>
+            <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">{formError}</div>
           )}
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -451,17 +279,11 @@ export const RuralProperties = () => {
               <Input
                 id="prop-nome"
                 value={propertyForm.nomeImovelIncra}
-                onChange={(e) =>
-                  setPropertyForm({ ...propertyForm, nomeImovelIncra: e.target.value })
-                }
+                onChange={(e) => setPropertyForm({ ...propertyForm, nomeImovelIncra: e.target.value })}
                 placeholder="Ex.: Fazenda Esperança (cadastro INCRA)"
                 className={fieldErrors.nomeImovelIncra ? 'border-destructive' : ''}
               />
-              {fieldErrors.nomeImovelIncra && (
-                <p className="text-sm text-destructive">
-                  {fieldErrors.nomeImovelIncra}
-                </p>
-              )}
+              {fieldErrors.nomeImovelIncra && <p className="text-sm text-destructive">{fieldErrors.nomeImovelIncra}</p>}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -469,12 +291,7 @@ export const RuralProperties = () => {
                 <Input
                   id="prop-sncr"
                   value={propertyForm.codigoSncr}
-                  onChange={(e) =>
-                    setPropertyForm({
-                      ...propertyForm,
-                      codigoSncr: maskCodigoSncr(e.target.value),
-                    })
-                  }
+                  onChange={(e) => setPropertyForm({ ...propertyForm, codigoSncr: maskCodigoSncr(e.target.value) })}
                   placeholder="Ex.: 123.123.123.123-1"
                   maxLength={17}
                 />
@@ -484,12 +301,7 @@ export const RuralProperties = () => {
                 <Input
                   id="prop-nirf"
                   value={propertyForm.nirf}
-                  onChange={(e) =>
-                    setPropertyForm({
-                      ...propertyForm,
-                      nirf: maskCib(e.target.value),
-                    })
-                  }
+                  onChange={(e) => setPropertyForm({ ...propertyForm, nirf: maskCib(e.target.value) })}
                   placeholder="Ex.: 1111111-1"
                   maxLength={9}
                 />
@@ -501,9 +313,7 @@ export const RuralProperties = () => {
                 <Input
                   id="prop-municipio"
                   value={propertyForm.municipio}
-                  onChange={(e) =>
-                    setPropertyForm({ ...propertyForm, municipio: e.target.value })
-                  }
+                  onChange={(e) => setPropertyForm({ ...propertyForm, municipio: e.target.value })}
                   placeholder="Ex.: Sorriso"
                 />
               </div>
@@ -512,9 +322,7 @@ export const RuralProperties = () => {
                 <Input
                   id="prop-uf"
                   value={propertyForm.uf}
-                  onChange={(e) =>
-                    setPropertyForm({ ...propertyForm, uf: e.target.value.toUpperCase() })
-                  }
+                  onChange={(e) => setPropertyForm({ ...propertyForm, uf: e.target.value.toUpperCase() })}
                   placeholder="Ex.: MT"
                   maxLength={2}
                 />
@@ -522,204 +330,11 @@ export const RuralProperties = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowCreatePropertyModal(false);
-                resetForms();
-              }}
-            >
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => { setShowCreatePropertyModal(false); resetForm(); }}>Cancelar</Button>
             <Button onClick={handleCreateProperty}>Cadastrar imóvel</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal: Nova matrícula */}
-      <Dialog
-        open={showCreateLandRegistryModal}
-        onOpenChange={(open) => {
-          setShowCreateLandRegistryModal(open);
-          if (!open) resetForms();
-        }}
-      >
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Nova matrícula</DialogTitle>
-            <DialogDescription>
-              Cadastre uma matrícula de cartório e vincule opcionalmente a um imóvel rural.
-            </DialogDescription>
-          </DialogHeader>
-          {formError && (
-            <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
-              {formError}
-            </div>
-          )}
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="mat-imovel">Imóvel rural (opcional)</Label>
-              <Select
-                value={landRegistryForm.ruralPropertyId || '__none__'}
-                onValueChange={(v) =>
-                  setLandRegistryForm({
-                    ...landRegistryForm,
-                    ruralPropertyId: v === '__none__' ? '' : v,
-                  })
-                }
-              >
-                <SelectTrigger id="mat-imovel">
-                  <SelectValue placeholder="Selecionar..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Selecionar...</SelectItem>
-                  {ruralProperties.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.nomeImovelIncra}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="mat-numero">Número da matrícula *</Label>
-              <Input
-                id="mat-numero"
-                value={landRegistryForm.numeroMatricula}
-                onChange={(e) =>
-                  setLandRegistryForm({
-                    ...landRegistryForm,
-                    numeroMatricula: e.target.value,
-                  })
-                }
-                className={fieldErrors.numeroMatricula ? 'border-destructive' : ''}
-              />
-              {fieldErrors.numeroMatricula && (
-                <p className="text-sm text-destructive">
-                  {fieldErrors.numeroMatricula}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="mat-cartorio">Cartório *</Label>
-              <Input
-                id="mat-cartorio"
-                value={landRegistryForm.cartorio}
-                onChange={(e) =>
-                  setLandRegistryForm({
-                    ...landRegistryForm,
-                    cartorio: e.target.value,
-                  })
-                }
-                className={fieldErrors.cartorio ? 'border-destructive' : ''}
-              />
-              {fieldErrors.cartorio && (
-                <p className="text-sm text-destructive">{fieldErrors.cartorio}</p>
-              )}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="mat-data-registro">Data de registro</Label>
-                <Input
-                  id="mat-data-registro"
-                  type="date"
-                  value={landRegistryForm.dataRegistro}
-                  onChange={(e) =>
-                    setLandRegistryForm({
-                      ...landRegistryForm,
-                      dataRegistro: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="mat-registro">Registro</Label>
-                <Input
-                  id="mat-registro"
-                  value={landRegistryForm.registro}
-                  onChange={(e) =>
-                    setLandRegistryForm({
-                      ...landRegistryForm,
-                      registro: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="mat-livro-ficha">Livro ou ficha</Label>
-                <Input
-                  id="mat-livro-ficha"
-                  value={landRegistryForm.livroOuFicha}
-                  onChange={(e) =>
-                    setLandRegistryForm({
-                      ...landRegistryForm,
-                      livroOuFicha: e.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="mat-area">Área (ha)</Label>
-                <Input
-                  id="mat-area"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={landRegistryForm.areaHa}
-                  onChange={(e) =>
-                    setLandRegistryForm({
-                      ...landRegistryForm,
-                      areaHa: e.target.value === '' ? '' : e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="mat-municipio">Município</Label>
-                <Input
-                  id="mat-municipio"
-                  value={landRegistryForm.municipio}
-                  onChange={(e) =>
-                    setLandRegistryForm({
-                      ...landRegistryForm,
-                      municipio: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="mat-uf">UF</Label>
-                <Input
-                  id="mat-uf"
-                  maxLength={2}
-                  value={landRegistryForm.uf}
-                  onChange={(e) =>
-                    setLandRegistryForm({
-                      ...landRegistryForm,
-                      uf: e.target.value.toUpperCase(),
-                    })
-                  }
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowCreateLandRegistryModal(false);
-                resetForms();
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button onClick={handleCreateLandRegistry}>Cadastrar matrícula</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </Layout>
   );
 };
-
