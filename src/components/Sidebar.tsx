@@ -30,7 +30,7 @@ import {
   Briefcase,
   Sprout,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { UserRole } from '@/services/api';
 
@@ -113,9 +113,16 @@ export const Sidebar = () => {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSuperAdminOpen, setIsSuperAdminOpen] = useState(false);
-  const [isPeopleMenuOpen, setIsPeopleMenuOpen] = useState(false);
-  const [isProductsMenuOpen, setIsProductsMenuOpen] = useState(false);
-  const [isAgricultureMenuOpen, setIsAgricultureMenuOpen] = useState(false);
+  // Um único estado: qual seção está aberta. Ao clicar num link dentro da seção, não alteramos; só fechamos ao abrir outra.
+  type SectionKey = 'people' | 'products' | 'agriculture';
+  const [expandedSection, setExpandedSection] = useState<SectionKey | null>(null);
+
+  // Manter a seção aberta quando a rota pertence a ela (ex.: navegar entre Persons e Funcionários)
+  useEffect(() => {
+    if (peopleMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('people');
+    else if (productsMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('products');
+    else if (agricultureMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('agriculture');
+  }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
@@ -250,7 +257,7 @@ export const Sidebar = () => {
                     <div className="mt-1 space-y-1">
                       <button
                         type="button"
-                        onClick={() => setIsPeopleMenuOpen((open) => !open)}
+                        onClick={() => setExpandedSection((s) => (s === 'people' ? null : 'people'))}
                         className={cn(
                           'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                           isPeopleSectionActive
@@ -262,13 +269,13 @@ export const Sidebar = () => {
                           <Users className="h-5 w-5" />
                           <span>Pessoas</span>
                         </span>
-                        {isPeopleMenuOpen ? (
+                        {expandedSection === 'people' ? (
                           <ChevronDown className="h-4 w-4" />
                         ) : (
                           <ChevronRight className="h-4 w-4" />
                         )}
                       </button>
-                      {isPeopleMenuOpen && (
+                      {expandedSection === 'people' && (
                         <div className="mt-1 space-y-1 pl-8">
                           {visiblePeopleItems.map((subItem) => {
                             const SubIcon = subItem.icon;
@@ -299,7 +306,7 @@ export const Sidebar = () => {
                     <div className="mt-1 space-y-1">
                       <button
                         type="button"
-                        onClick={() => setIsProductsMenuOpen((open) => !open)}
+                        onClick={() => setExpandedSection((s) => (s === 'products' ? null : 'products'))}
                         className={cn(
                           'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                           isProductsSectionActive
@@ -311,13 +318,13 @@ export const Sidebar = () => {
                           <Package className="h-5 w-5" />
                           <span>Produtos</span>
                         </span>
-                        {isProductsMenuOpen ? (
+                        {expandedSection === 'products' ? (
                           <ChevronDown className="h-4 w-4" />
                         ) : (
                           <ChevronRight className="h-4 w-4" />
                         )}
                       </button>
-                      {isProductsMenuOpen && (
+                      {expandedSection === 'products' && (
                         <div className="mt-1 space-y-1 pl-8">
                           {visibleProductsItems.map((subItem) => {
                             const SubIcon = subItem.icon;
@@ -348,7 +355,7 @@ export const Sidebar = () => {
                     <div className="mt-1 space-y-1">
                       <button
                         type="button"
-                        onClick={() => setIsAgricultureMenuOpen((open) => !open)}
+                        onClick={() => setExpandedSection((s) => (s === 'agriculture' ? null : 'agriculture'))}
                         className={cn(
                           'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                           isAgricultureSectionActive
@@ -360,13 +367,13 @@ export const Sidebar = () => {
                           <Sprout className="h-5 w-5" />
                           <span>Agricultura</span>
                         </span>
-                        {isAgricultureMenuOpen ? (
+                        {expandedSection === 'agriculture' ? (
                           <ChevronDown className="h-4 w-4" />
                         ) : (
                           <ChevronRight className="h-4 w-4" />
                         )}
                       </button>
-                      {isAgricultureMenuOpen && (
+                      {expandedSection === 'agriculture' && (
                         <div className="mt-1 space-y-1 pl-8">
                           {visibleAgricultureItems.map((subItem) => {
                             const SubIcon = subItem.icon;
