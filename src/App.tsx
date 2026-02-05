@@ -83,7 +83,7 @@ function App() {
             }
           />
           <Route
-            path="/proprietarios"
+            path="/produtores"
             element={
               <ProtectedRoute>
                 <Proprietarios />

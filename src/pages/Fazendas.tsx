@@ -274,7 +274,7 @@ export const Fazendas = () => {
           <div>
             <h1 className="text-3xl font-bold">Fazendas</h1>
             <p className="text-muted-foreground">
-              Cadastre fazendas e vincule um ou mais proprietários. Um proprietário pode ter várias fazendas.
+              Cadastre fazendas e vincule um ou mais produtores. Um produtor pode ter várias fazendas.
             </p>
           </div>
           <Button onClick={() => { resetForm(); setShowCreateModal(true); }}>
@@ -299,7 +299,7 @@ export const Fazendas = () => {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome da fazenda, localização ou proprietário..."
+            placeholder="Buscar por nome da fazenda, localização ou produtor..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -333,7 +333,7 @@ export const Fazendas = () => {
                           </span>
                         )}
                         {(farm.tipoExploracao ?? 'PROPRIO') === 'ARRENDADA' && farm.proprietarioNome && (
-                          <span className="text-muted-foreground">Proprietário: {farm.proprietarioNome}</span>
+                          <span className="text-muted-foreground">Produtor: {farm.proprietarioNome}</span>
                         )}
                         {(farm.tipoExploracao ?? 'PROPRIO') === 'ARRENDADA' && (farm.dataInicioArrendamento || farm.dataFimArrendamento) && (
                           <span className="text-muted-foreground">
@@ -405,7 +405,7 @@ export const Fazendas = () => {
           <DialogHeader>
             <DialogTitle>Cadastrar fazenda</DialogTitle>
             <DialogDescription>
-              Preencha os dados da fazenda e vincule um ou mais imóveis rurais. Os proprietários são vinculados às matrículas em Imóveis Rurais. Campos com * são obrigatórios.
+              Preencha os dados da fazenda e vincule um ou mais imóveis rurais. Os produtores são vinculados às matrículas em Imóveis Rurais. Campos com * são obrigatórios.
             </DialogDescription>
           </DialogHeader>
           {formError && (
@@ -474,12 +474,12 @@ export const Fazendas = () => {
             {formData.tipoExploracao === 'ARRENDADA' && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="create-proprietarioNome">Proprietário da fazenda</Label>
+                  <Label htmlFor="create-proprietarioNome">Produtor da fazenda</Label>
                   <Input
                     id="create-proprietarioNome"
                     value={formData.proprietarioNome}
                     onChange={(e) => setFormData({ ...formData, proprietarioNome: e.target.value })}
-                    placeholder="Nome do proprietário"
+                    placeholder="Nome do produtor"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -647,12 +647,12 @@ export const Fazendas = () => {
             {formData.tipoExploracao === 'ARRENDADA' && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-proprietarioNome">Proprietário da fazenda</Label>
+                  <Label htmlFor="edit-proprietarioNome">Produtor da fazenda</Label>
                   <Input
                     id="edit-proprietarioNome"
                     value={formData.proprietarioNome}
                     onChange={(e) => setFormData({ ...formData, proprietarioNome: e.target.value })}
-                    placeholder="Nome do proprietário"
+                    placeholder="Nome do produtor"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">

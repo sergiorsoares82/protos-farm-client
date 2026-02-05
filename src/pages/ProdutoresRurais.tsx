@@ -128,7 +128,7 @@ export const ProdutoresRurais = () => {
     }
   };
 
-  /** Proprietários (pessoas com role FARM_OWNER) para a aba Participantes. */
+  /** Produtores (pessoas com role FARM_OWNER); usado ao carregar edição para preencher personId dos participantes quando houver match por CPF. */
   const proprietarios = useMemo(
     () => persons.filter((p) => p.roles?.FARM_OWNER),
     [persons]
@@ -228,7 +228,11 @@ export const ProdutoresRurais = () => {
     }
     setFormData({
       personId: sr.personId ?? '',
-      ruralPropertyId: sr.ruralPropertyId ?? '' as any,
+      ruralPropertyId:
+        (sr.ruralPropertyId ??
+          (sr.landRegistries?.length && sr.landRegistries[0].ruralPropertyId
+            ? sr.landRegistries[0].ruralPropertyId
+            : '')) as any,
       landRegistryIds: (sr.landRegistries ?? []).map((lr) => lr.id),
       numeroIe: sr.numeroIe ?? '',
       uf: sr.uf ?? '',
@@ -285,7 +289,7 @@ export const ProdutoresRurais = () => {
 
   const updateParticipant = (
     index: number,
-    field: 'personId' | 'participation',
+    field: 'nome' | 'cpf' | 'participation',
     value: string
   ) => {
     setFormData((prev) => {
@@ -616,9 +620,13 @@ export const ProdutoresRurais = () => {
                   <Label>Imóvel rural (opcional)</Label>
                   <Select
                     value={formData.ruralPropertyId || '__none__'}
-                    onValueChange={(v) =>
-                      setForm({ ruralPropertyId: v === '__none__' ? '' : v })
-                    }
+                    onValueChange={(v) => {
+                      const newId = v === '__none__' ? '' : v;
+                      setForm({
+                        ruralPropertyId: newId,
+                        landRegistryIds: [], // limpar matrículas ao trocar de imóvel
+                      });
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o imóvel rural vinculado" />
@@ -637,61 +645,57 @@ export const ProdutoresRurais = () => {
                     Um imóvel rural pode ter várias inscrições estaduais.
                   </p>
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Matrículas vinculadas (uma ou mais)</Label>
-                  {landRegistries.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Cadastre matrículas em Matrículas antes de vincular.
-                    </p>
-                  ) : (
-                    <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
-                      {(formData.ruralPropertyId
-                        ? landRegistries.filter(
+                {formData.ruralPropertyId && (
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Matrículas vinculadas (uma ou mais)</Label>
+                    {landRegistries.filter(
+                      (lr) => lr.ruralPropertyId === formData.ruralPropertyId
+                    ).length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Nenhuma matrícula cadastrada para este imóvel. Cadastre matrículas em
+                        Matrículas e vincule-as ao imóvel rural.
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
+                        {landRegistries
+                          .filter(
                             (lr) => lr.ruralPropertyId === formData.ruralPropertyId
                           )
-                        : landRegistries
-                      ).map((lr) => (
-                        <div key={lr.id} className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id={`lr-${lr.id}`}
-                            checked={formData.landRegistryIds.includes(lr.id)}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setForm({
-                                landRegistryIds: checked
-                                  ? [...formData.landRegistryIds, lr.id]
-                                  : formData.landRegistryIds.filter((id) => id !== lr.id),
-                              });
-                            }}
-                            className="rounded"
-                          />
-                          <label
-                            htmlFor={`lr-${lr.id}`}
-                            className="flex-1 text-sm cursor-pointer"
-                          >
-                            {lr.numeroMatricula}
-                            {lr.cartorio && ` · ${lr.cartorio}`}
-                            {lr.areaHa != null && ` · ${Number(lr.areaHa).toLocaleString('pt-BR')} ha`}
-                          </label>
-                        </div>
-                      ))}
-                      {formData.ruralPropertyId &&
-                        landRegistries.filter(
-                          (lr) => lr.ruralPropertyId === formData.ruralPropertyId
-                        ).length === 0 && (
-                          <p className="text-sm text-muted-foreground">
-                            Nenhuma matrícula cadastrada para este imóvel. Selecione matrículas sem
-                            filtrar por imóvel ou cadastre matrículas em Matrículas.
-                          </p>
-                        )}
-                    </div>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    A inscrição estadual pode estar vinculada a uma ou mais matrículas do imóvel
-                    rural.
-                  </p>
-                </div>
+                          .map((lr) => (
+                            <div key={lr.id} className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id={`lr-${lr.id}`}
+                                checked={formData.landRegistryIds.includes(lr.id)}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setForm({
+                                    landRegistryIds: checked
+                                      ? [...formData.landRegistryIds, lr.id]
+                                      : formData.landRegistryIds.filter((id) => id !== lr.id),
+                                  });
+                                }}
+                                className="rounded"
+                              />
+                              <label
+                                htmlFor={`lr-${lr.id}`}
+                                className="flex-1 text-sm cursor-pointer"
+                              >
+                                {lr.numeroMatricula}
+                                {lr.cartorio && ` · ${lr.cartorio}`}
+                                {lr.areaHa != null &&
+                                  ` · ${Number(lr.areaHa).toLocaleString('pt-BR')} ha`}
+                              </label>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Selecione uma ou mais matrículas do imóvel rural para vincular à inscrição
+                      estadual.
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-2 md:col-span-2">
                   <Label>CNAE(s)</Label>
                   <div className="space-y-2">
@@ -853,68 +857,58 @@ export const ProdutoresRurais = () => {
             </TabsContent>
             <TabsContent value="participantes" className="space-y-4 pt-4">
               <p className="text-sm text-muted-foreground">
-                Participantes da sociedade em comum de produtor rural (proprietários) e sua
+                Informe os participantes da sociedade em comum de produtor rural (nome, CPF) e a
                 participação percentual.
               </p>
               <div className="space-y-2">
                 {formData.participants.map((p, i) => (
-                  <div key={i} className="flex flex-col md:flex-row gap-2 items-center">
-                    <div className="w-full md:flex-1">
-                      <Label className="text-xs">Participante (proprietário)</Label>
-                      <Select
-                        value={p.personId || '__none__'}
-                        onValueChange={(v) => {
-                          const value = v === '__none__' ? '' : v;
-                          const owner = proprietarios.find((o) => o.id === value);
-                          setFormData((prev) => {
-                            const next = [...prev.participants];
-                            next[i] = {
-                              ...next[i],
-                              personId: value,
-                              cpf: owner?.cpfCnpj ?? '',
-                              nome: owner?.nome ?? '',
-                            };
-                            return { ...prev, participants: next };
-                          });
-                        }}
+                  <div key={i} className="flex flex-col gap-2 p-3 border rounded-md">
+                    <div className="flex flex-wrap gap-2 items-end">
+                      <div className="w-full md:flex-1 min-w-[180px]">
+                        <Label className="text-xs">Nome do participante</Label>
+                        <Input
+                          placeholder="Nome completo"
+                          value={p.nome}
+                          onChange={(e) =>
+                            updateParticipant(i, 'nome', e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="w-full md:w-44 min-w-[140px]">
+                        <Label className="text-xs">CPF</Label>
+                        <Input
+                          placeholder="000.000.000-00"
+                          value={p.cpf}
+                          onChange={(e) =>
+                            updateParticipant(i, 'cpf', formatCpf(e.target.value))
+                          }
+                          maxLength={14}
+                        />
+                      </div>
+                      <div className="w-full md:w-32">
+                        <Label className="text-xs">% participação</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.01}
+                          placeholder="0,00"
+                          value={p.participation}
+                          onChange={(e) =>
+                            updateParticipant(i, 'participation', e.target.value)
+                          }
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeParticipant(i)}
+                        className="shrink-0"
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o proprietário" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">— Selecione —</SelectItem>
-                          {proprietarios.map((owner) => (
-                            <SelectItem key={owner.id} value={owner.id}>
-                              {owner.nome}{' '}
-                              {owner.cpfCnpj ? `(${owner.cpfCnpj})` : ''}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <div className="w-full md:w-40">
-                      <Label className="text-xs">% participação</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={0.01}
-                        placeholder="0,00"
-                        value={p.participation}
-                        onChange={(e) =>
-                          updateParticipant(i, 'participation', e.target.value)
-                        }
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeParticipant(i)}
-                      className="self-start mt-6 md:mt-5"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
                   </div>
                 ))}
                 <Button type="button" variant="outline" size="sm" onClick={addParticipant}>

@@ -106,7 +106,7 @@ export const Proprietarios = () => {
       const data = await apiService.getPersons();
       setPersons(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Falha ao carregar proprietários');
+      setError(err instanceof Error ? err.message : 'Falha ao carregar produtores');
       console.error('Error loading persons:', err);
     } finally {
       setLoading(false);
@@ -165,7 +165,7 @@ export const Proprietarios = () => {
       resetForm();
     } catch (err: unknown) {
       console.error('Error creating farm owner:', err);
-      setFormError(err instanceof Error ? err.message : 'Falha ao cadastrar proprietário');
+      setFormError(err instanceof Error ? err.message : 'Falha ao cadastrar produtor');
     }
   };
 
@@ -201,18 +201,18 @@ export const Proprietarios = () => {
       setSelectedPerson(null);
       resetForm();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Falha ao atualizar proprietário');
+      setError(err instanceof Error ? err.message : 'Falha ao atualizar produtor');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este proprietário?')) return;
+    if (!confirm('Tem certeza que deseja excluir este produtor?')) return;
     try {
       setError(null);
       await apiService.deletePerson(id);
       await loadPersons();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Falha ao excluir proprietário');
+      setError(err instanceof Error ? err.message : 'Falha ao excluir produtor');
     }
   };
 
@@ -244,14 +244,14 @@ export const Proprietarios = () => {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Proprietários</h1>
+            <h1 className="text-3xl font-bold">Produtores</h1>
             <p className="text-muted-foreground">
-              Cadastre e gerencie os proprietários da fazenda vinculados à entidade pessoa
+              Cadastre e gerencie os produtores da fazenda vinculados à entidade pessoa
             </p>
           </div>
           <Button onClick={() => { resetForm(); setShowCreateModal(true); }}>
             <Plus className="mr-2 h-4 w-4" />
-            Novo proprietário
+            Novo produtor
           </Button>
         </div>
 
@@ -284,8 +284,8 @@ export const Proprietarios = () => {
               <Sprout className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
                 {searchTerm
-                  ? 'Nenhum proprietário encontrado com esse filtro.'
-                  : 'Nenhum proprietário cadastrado. Clique em "Novo proprietário" para cadastrar.'}
+                  ? 'Nenhum produtor encontrado com esse filtro.'
+                  : 'Nenhum produtor cadastrado. Clique em "Novo produtor" para cadastrar.'}
               </p>
             </CardContent>
           </Card>
@@ -363,7 +363,7 @@ export const Proprietarios = () => {
         <Card>
           <CardHeader>
             <CardTitle>Resumo</CardTitle>
-            <CardDescription>Total de proprietários cadastrados</CardDescription>
+            <CardDescription>Total de produtores cadastrados</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{farmOwners.length}</p>
@@ -371,7 +371,7 @@ export const Proprietarios = () => {
         </Card>
       </div>
 
-      {/* Modal: Novo proprietário */}
+      {/* Modal: Novo produtor */}
       <Dialog
         open={showCreateModal}
         onOpenChange={(open) => {
@@ -381,7 +381,7 @@ export const Proprietarios = () => {
       >
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Cadastrar proprietário</DialogTitle>
+            <DialogTitle>Cadastrar produtor</DialogTitle>
             <DialogDescription>
               Preencha os dados da pessoa. A vinculação com fazendas será feita no cadastro de fazenda. Campos com * são obrigatórios.
             </DialogDescription>
@@ -474,7 +474,7 @@ export const Proprietarios = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Editar proprietário */}
+      {/* Modal: Editar produtor */}
       <Dialog
         open={showEditModal}
         onOpenChange={(open) => {
@@ -487,7 +487,7 @@ export const Proprietarios = () => {
       >
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Editar proprietário</DialogTitle>
+            <DialogTitle>Editar produtor</DialogTitle>
             <DialogDescription>
               Altere os dados da pessoa. A vinculação com fazendas será feita no cadastro de fazenda. Campos com * são obrigatórios.
             </DialogDescription>

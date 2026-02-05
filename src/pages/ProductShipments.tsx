@@ -247,9 +247,18 @@ export const ProductShipments = () => {
     return `${d}/${m}/${y}`;
   };
 
-  const getSupplierName = (supplierId: string) => {
-    const s = suppliers.find((x) => x.id === supplierId);
-    return s ? (s.person?.nome ?? s.supplyCategories ?? s.id) : supplierId;
+  const getEmitterDisplay = (inv: Invoice): string => {
+    if (inv.emitter) {
+      return inv.emitter.nome ?? inv.emitter.nomeEstabelecimento ?? inv.emitter.id;
+    }
+    if (inv.emitterPartyId) {
+      return inv.emitterPartyId;
+    }
+    if (inv.emitterSupplierId) {
+      const s = suppliers.find((x) => x.id === inv.emitterSupplierId);
+      return s ? (s.person?.nome ?? s.supplyCategories ?? s.id) : inv.emitterSupplierId ?? '—';
+    }
+    return '—';
   };
 
   const getItemName = (itemId: string) => items.find((i) => i.id === itemId)?.name ?? itemId;
@@ -317,7 +326,7 @@ export const ProductShipments = () => {
                         <td className="px-4 py-3">{inv.number}</td>
                         <td className="px-4 py-3">{inv.series ?? '—'}</td>
                         <td className="px-4 py-3">{formatDate(inv.issueDate)}</td>
-                        <td className="px-4 py-3">{getSupplierName(inv.supplierId)}</td>
+                        <td className="px-4 py-3">{getEmitterDisplay(inv)}</td>
                         <td className="px-4 py-3">{inv.items?.length ?? 0}</td>
                         <td className="px-4 py-3 text-right">
                           {inv.itemsTotal != null

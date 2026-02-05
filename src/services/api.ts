@@ -136,7 +136,7 @@ export interface Person {
   updatedAt: string;
 }
 
-// Farm (Fazenda) Types – proprietários são vinculados à matrícula (Imóveis Rurais), não à fazenda
+// Farm (Fazenda) Types – produtores são vinculados à matrícula (Imóveis Rurais), não à fazenda
 export interface FarmRuralPropertyItem {
   id: string;
   nomeImovelIncra: string;
@@ -500,17 +500,40 @@ export interface InvoiceFinancialDTO {
   status?: InvoiceFinancialStatus;
 }
 
+export interface InvoiceEmitter {
+  type: 'SUPPLIER' | 'PARTY';
+  id: string;
+  nome?: string;
+  nomeEstabelecimento?: string;
+  numeroIe?: string;
+  cpfCnpj?: string | null;
+}
+
+export interface InvoiceRecipient {
+  type: 'CLIENT' | 'PARTY';
+  id: string;
+  nome?: string;
+  nomeEstabelecimento?: string;
+  numeroIe?: string;
+  cpfCnpj?: string | null;
+}
+
 export interface Invoice {
   id: string;
   tenantId: string;
   number: string;
   series?: string;
   issueDate: string;
-  supplierId: string;
+  emitterSupplierId?: string | null;
+  emitterPartyId?: string | null;
+  recipientClientId?: string | null;
+  recipientPartyId?: string | null;
   documentTypeId?: string;
   documentType?: DocumentType;
   notes?: string;
   type: InvoiceType;
+  emitter?: InvoiceEmitter;
+  recipient?: InvoiceRecipient;
   items: (InvoiceItemDTO & { id: string; invoiceId: string; totalPrice?: number; quantityReceivedTotal?: number })[];
   financials: (InvoiceFinancialDTO & { id: string; invoiceId: string })[];
   itemsTotal?: number;
@@ -567,7 +590,14 @@ export interface CreateInvoiceRequest {
   number: string;
   series?: string;
   issueDate: string;
-  supplierId: string;
+  /** RECEITA: emitente produtor/empresa */
+  emitterPartyId?: string | null;
+  /** DESPESA: emitente fornecedor */
+  emitterSupplierId?: string | null;
+  /** RECEITA: destinatário cliente */
+  recipientClientId?: string | null;
+  /** DESPESA: destinatário produtor/empresa */
+  recipientPartyId?: string | null;
   documentTypeId?: string;
   notes?: string;
   type: InvoiceType;
@@ -579,7 +609,10 @@ export interface UpdateInvoiceRequest {
   number?: string;
   series?: string;
   issueDate?: string;
-  supplierId?: string;
+  emitterPartyId?: string | null;
+  emitterSupplierId?: string | null;
+  recipientClientId?: string | null;
+  recipientPartyId?: string | null;
   documentTypeId?: string;
   notes?: string;
   type?: InvoiceType;
@@ -591,6 +624,18 @@ export interface Supplier {
   id: string;
   personId: string;
   supplyCategories?: string | null;
+  person: {
+    id: string;
+    nome: string;
+    personType: string;
+    cpfCnpj?: string | null;
+    email: string;
+  } | null;
+}
+
+export interface Client {
+  id: string;
+  personId: string;
   person: {
     id: string;
     nome: string;
@@ -1818,6 +1863,15 @@ class ApiService {
       headers: this.getAuthHeaders(),
     });
     const data = await this.handleResponse<{ success: boolean; data: Supplier[] }>(response);
+    return data.data;
+  }
+
+  async getClients(): Promise<Client[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/clients`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: Client[] }>(response);
     return data.data;
   }
 

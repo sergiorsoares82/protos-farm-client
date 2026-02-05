@@ -70,7 +70,7 @@ const farmMenuItems: NavItem[] = [
 const peopleMenuItems: NavItem[] = [
   { name: 'Persons', path: '/persons', icon: Users, roles: 'all' },
   { name: 'Clientes e Fornecedores', path: '/clients-suppliers', icon: Building2, roles: 'all' },
-  { name: 'Proprietários', path: '/proprietarios', icon: Sprout, roles: 'all' },
+  { name: 'Produtores', path: '/produtores', icon: Sprout, roles: 'all' },
   { name: 'Usuários', path: '/users', icon: UserCog, roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN] },
 ];
 

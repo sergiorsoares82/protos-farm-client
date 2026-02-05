@@ -18,7 +18,7 @@ import { Autocomplete } from '@/components/ui/autocomplete';
 import { AutocompleteWithCreate } from '@/components/ui/autocomplete-with-create';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { FileText, Plus, Pencil, Trash2, AlertCircle, DollarSign, Package, UserPlus } from 'lucide-react';
+import { FileText, Plus, Pencil, Trash2, AlertCircle, DollarSign, Package } from 'lucide-react';
 import {
   apiService,
   Invoice,
@@ -30,16 +30,14 @@ import {
   CreateInvoiceShipmentRequest,
   ItemType,
   Item,
-  Supplier,
+  Client,
+  StateRegistration,
   InvoiceType,
   DocumentType,
   UnitOfMeasure,
   CostCenter,
   ManagementAccount,
   Season,
-  CreatePersonRequest,
-  PersonType,
-  PersonRole,
   CreateItemRequest,
   BankAccount,
   InvoiceFinancialsType,
@@ -49,7 +47,8 @@ const defaultForm: CreateInvoiceRequest = {
   number: '',
   series: '',
   issueDate: new Date().toISOString().slice(0, 10),
-  supplierId: '',
+  emitterPartyId: undefined,
+  recipientClientId: undefined,
   documentTypeId: '',
   notes: '',
   type: InvoiceType.RECEITA,
@@ -82,7 +81,8 @@ export const Revenues = () => {
   const [invoiceShipments, setInvoiceShipments] = useState<InvoiceShipmentDTO[]>([]);
   const [shipmentError, setShipmentError] = useState<string | null>(null);
 
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [stateRegistrations, setStateRegistrations] = useState<StateRegistration[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
   const [unitOfMeasures, setUnitOfMeasures] = useState<UnitOfMeasure[]>([]);
@@ -97,18 +97,6 @@ export const Revenues = () => {
   const [pendingUpdatePayload, setPendingUpdatePayload] = useState<UpdateInvoiceRequest | null>(null);
   const [pendingUnshipCount, setPendingUnshipCount] = useState(0);
   const [isProcessingUnship, setIsProcessingUnship] = useState(false);
-  
-  // Modal de novo fornecedor
-  const [showSupplierModal, setShowSupplierModal] = useState(false);
-  const [supplierForm, setSupplierForm] = useState({
-    nome: '',
-    personType: 'FISICA' as 'FISICA' | 'JURIDICA',
-    cpfCnpj: '',
-    email: '',
-    phone: '',
-    supplyCategories: '',
-  });
-  const [supplierFormError, setSupplierFormError] = useState<string | null>(null);
   
   // Modal de novo item (produto/serviço)
   const [showItemModal, setShowItemModal] = useState(false);
@@ -146,7 +134,8 @@ export const Revenues = () => {
     const init = async () => {
       try {
         const [
-          suppliersRes,
+          clientsRes,
+          stateRegistrationsRes,
           itemsRes,
           documentTypesRes,
           unitOfMeasuresRes,
@@ -156,7 +145,8 @@ export const Revenues = () => {
           bankAccountsRes,
           invoiceFinancialsTypesRes,
         ] = await Promise.all([
-          apiService.getSuppliers(),
+          apiService.getClients(),
+          apiService.getStateRegistrations(),
           apiService.getItems(),
           apiService.getDocumentTypes(),
           apiService.getUnitOfMeasures(),
@@ -166,7 +156,8 @@ export const Revenues = () => {
           apiService.getBankAccounts(),
           apiService.getInvoiceFinancialsTypes(),
         ]);
-        setSuppliers(suppliersRes);
+        setClients(clientsRes);
+        setStateRegistrations(stateRegistrationsRes);
         setItems(itemsRes);
         setDocumentTypes(documentTypesRes);
         setUnitOfMeasures(unitOfMeasuresRes.filter((u) => u.isActive));
@@ -182,67 +173,11 @@ export const Revenues = () => {
     init();
   }, []);
 
-  const handleCreateSupplier = async () => {
-    if (!supplierForm.nome.trim()) {
-      setSupplierFormError('Nome é obrigatório');
-      return;
-    }
-    if (!supplierForm.email.trim()) {
-      setSupplierFormError('E-mail é obrigatório');
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(supplierForm.email)) {
-      setSupplierFormError('Informe um e-mail válido');
-      return;
-    }
-
-    try {
-      setSupplierFormError(null);
-      const payload: CreatePersonRequest = {
-        nome: supplierForm.nome,
-        personType: supplierForm.personType as PersonType,
-        cpfCnpj: supplierForm.cpfCnpj || undefined,
-        email: supplierForm.email,
-        phone: supplierForm.phone || undefined,
-        roles: [
-          {
-            type: PersonRole.SUPPLIER,
-            data: { supplyCategories: supplierForm.supplyCategories || undefined },
-          },
-        ],
-      };
-      const newPerson = await apiService.createPerson(payload);
-      
-      // Recarregar fornecedores
-      const suppliersRes = await apiService.getSuppliers();
-      setSuppliers(suppliersRes);
-      
-      // Encontrar o novo fornecedor criado
-      const newSupplier = suppliersRes.find((s) => s.personId === newPerson.id);
-      if (newSupplier) {
-        setFormData({ ...formData, supplierId: newSupplier.id });
-      }
-      
-      // Fechar modal e resetar form
-      setShowSupplierModal(false);
-      setSupplierForm({
-        nome: '',
-        personType: 'FISICA',
-        cpfCnpj: '',
-        email: '',
-        phone: '',
-        supplyCategories: '',
-      });
-    } catch (err: any) {
-      setSupplierFormError(err.message || 'Falha ao cadastrar fornecedor');
-    }
-  };
-
   const validateForm = (): string | null => {
     if (!formData.number?.trim()) return 'Número da nota é obrigatório';
     if (!formData.issueDate) return 'Data de emissão é obrigatória';
-    if (!formData.supplierId) return 'Fornecedor é obrigatório';
+    if (!formData.emitterPartyId) return 'Emitente (produtor/empresa) é obrigatório';
+    if (!formData.recipientClientId) return 'Destinatário (cliente) é obrigatório';
     if (!formData.items?.length) return 'Adicione pelo menos um item (produto ou serviço)';
     for (let i = 0; i < formData.items.length; i++) {
       const line = formData.items[i];
@@ -371,7 +306,8 @@ export const Revenues = () => {
         number: formData.number.trim(),
         series: formData.series?.trim() || undefined,
         issueDate: formData.issueDate,
-        supplierId: formData.supplierId,
+        emitterPartyId: formData.emitterPartyId ?? undefined,
+        recipientClientId: formData.recipientClientId ?? undefined,
         documentTypeId: formData.documentTypeId?.trim() || undefined,
         notes: formData.notes?.trim() || undefined,
         type: InvoiceType.RECEITA,
@@ -425,7 +361,8 @@ export const Revenues = () => {
         number: formData.number.trim(),
         series: formData.series?.trim() || undefined,
         issueDate: formData.issueDate,
-        supplierId: formData.supplierId,
+        emitterPartyId: formData.emitterPartyId ?? undefined,
+        recipientClientId: formData.recipientClientId ?? undefined,
         documentTypeId: formData.documentTypeId?.trim() || undefined,
         notes: formData.notes?.trim() || undefined,
         type: InvoiceType.RECEITA,
@@ -603,7 +540,8 @@ export const Revenues = () => {
         number: full.number,
         series: full.series ?? '',
         issueDate: full.issueDate.slice(0, 10),
-        supplierId: full.supplierId,
+        emitterPartyId: full.emitterPartyId ?? undefined,
+        recipientClientId: full.recipientClientId ?? undefined,
         documentTypeId: full.documentTypeId ?? '',
         notes: full.notes ?? '',
         type: InvoiceType.RECEITA,
@@ -741,9 +679,25 @@ export const Revenues = () => {
     return `${d}/${m}/${y}`;
   };
 
-  const getSupplierName = (supplierId: string) => {
-    const s = suppliers.find((s) => s.id === supplierId);
-    return s ? (s.person?.nome ?? s.supplyCategories ?? s.id) : supplierId;
+  const getEmitterDisplay = (inv: Invoice): string => {
+    if (inv.emitter) {
+      return inv.emitter.nomeEstabelecimento ?? inv.emitter.nome ?? inv.emitter.id;
+    }
+    if (inv.emitterPartyId) {
+      const sr = stateRegistrations.find((x) => x.id === inv.emitterPartyId);
+      return sr ? (sr.nomeEstabelecimento ?? sr.nomeResponsavel ?? sr.numeroIe) : inv.emitterPartyId ?? '—';
+    }
+    return '—';
+  };
+  const getRecipientDisplay = (inv: Invoice): string => {
+    if (inv.recipient) {
+      return inv.recipient.nome ?? inv.recipient.nomeEstabelecimento ?? inv.recipient.id;
+    }
+    if (inv.recipientClientId) {
+      const c = clients.find((x) => x.id === inv.recipientClientId);
+      return c ? (c.person?.nome ?? c.id) : inv.recipientClientId ?? '—';
+    }
+    return '—';
   };
   const getItemName = (itemId: string) => items.find((i) => i.id === itemId)?.name ?? itemId;
 
@@ -878,7 +832,7 @@ export const Revenues = () => {
                         <td className="px-4 py-3 font-medium">{inv.number}</td>
                         <td className="px-4 py-3">{inv.series ?? '—'}</td>
                         <td className="px-4 py-3">{formatDate(inv.issueDate)}</td>
-                        <td className="px-4 py-3">{getSupplierName(inv.supplierId)}</td>
+                        <td className="px-4 py-3">{getEmitterDisplay(inv)}</td>
                         <td className="px-4 py-3">{inv.items?.length ?? 0}</td>
                         <td className="px-4 py-3">
                           {inv.itemsTotal != null
@@ -947,32 +901,32 @@ export const Revenues = () => {
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="grid gap-4 py-4 px-6">
-              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4">
+              <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr] gap-4">
                 <div className="space-y-2 min-w-0">
-                  <Label>Fornecedor *</Label>
-                  <div className="flex gap-2">
-                    <div className="flex-1 min-w-0">
-                      <Autocomplete
-                        options={suppliers.map((s) => ({
-                          value: s.id,
-                          label: s.person?.nome ?? s.supplyCategories ?? s.id,
-                        }))}
-                        value={formData.supplierId}
-                        onChange={(value) => setFormData({ ...formData, supplierId: value })}
-                        placeholder="Digite para buscar fornecedor..."
-                        emptyMessage="Nenhum fornecedor encontrado"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setShowSupplierModal(true)}
-                      title="Cadastrar novo fornecedor"
-                    >
-                      <UserPlus className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <Label>Emitente (produtor/empresa) *</Label>
+                  <Autocomplete
+                    options={stateRegistrations.map((sr) => ({
+                      value: sr.id,
+                      label: sr.nomeEstabelecimento ?? sr.nomeResponsavel ?? sr.numeroIe ?? sr.id,
+                    }))}
+                    value={formData.emitterPartyId ?? ''}
+                    onChange={(value) => setFormData({ ...formData, emitterPartyId: value })}
+                    placeholder="Digite para buscar..."
+                    emptyMessage="Nenhum cadastrado"
+                  />
+                </div>
+                <div className="space-y-2 min-w-0">
+                  <Label>Destinatário (cliente) *</Label>
+                  <Autocomplete
+                    options={clients.map((c) => ({
+                      value: c.id,
+                      label: c.person?.nome ?? c.id,
+                    }))}
+                    value={formData.recipientClientId ?? ''}
+                    onChange={(value) => setFormData({ ...formData, recipientClientId: value })}
+                    placeholder="Digite para buscar cliente..."
+                    emptyMessage="Nenhum cliente encontrado"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Data de emissão *</Label>
@@ -1357,32 +1311,32 @@ export const Revenues = () => {
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="grid gap-4 py-4 px-6">
-              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4">
+              <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr] gap-4">
                 <div className="space-y-2 min-w-0">
-                  <Label>Fornecedor *</Label>
-                  <div className="flex gap-2">
-                    <div className="flex-1 min-w-0">
-                      <Autocomplete
-                        options={suppliers.map((s) => ({
-                          value: s.id,
-                          label: s.person?.nome ?? s.supplyCategories ?? s.id,
-                        }))}
-                        value={formData.supplierId}
-                        onChange={(value) => setFormData({ ...formData, supplierId: value })}
-                        placeholder="Digite para buscar fornecedor..."
-                        emptyMessage="Nenhum fornecedor encontrado"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setShowSupplierModal(true)}
-                      title="Cadastrar novo fornecedor"
-                    >
-                      <UserPlus className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <Label>Emitente (produtor/empresa) *</Label>
+                  <Autocomplete
+                    options={stateRegistrations.map((sr) => ({
+                      value: sr.id,
+                      label: sr.nomeEstabelecimento ?? sr.nomeResponsavel ?? sr.numeroIe ?? sr.id,
+                    }))}
+                    value={formData.emitterPartyId ?? ''}
+                    onChange={(value) => setFormData({ ...formData, emitterPartyId: value })}
+                    placeholder="Digite para buscar..."
+                    emptyMessage="Nenhum cadastrado"
+                  />
+                </div>
+                <div className="space-y-2 min-w-0">
+                  <Label>Destinatário (cliente) *</Label>
+                  <Autocomplete
+                    options={clients.map((c) => ({
+                      value: c.id,
+                      label: c.person?.nome ?? c.id,
+                    }))}
+                    value={formData.recipientClientId ?? ''}
+                    onChange={(value) => setFormData({ ...formData, recipientClientId: value })}
+                    placeholder="Digite para buscar cliente..."
+                    emptyMessage="Nenhum cliente encontrado"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Data de emissão *</Label>
@@ -1808,8 +1762,8 @@ export const Revenues = () => {
                 {detailInvoice?.series ? ` - Série ${detailInvoice.series}` : ''}
               </DialogTitle>
               <DialogDescription>
-                Emissão: {detailInvoice && formatDate(detailInvoice.issueDate)} • Fornecedor:{' '}
-                {detailInvoice && getSupplierName(detailInvoice.supplierId)}
+                Emissão: {detailInvoice && formatDate(detailInvoice.issueDate)} • Emitente:{' '}
+                {detailInvoice && getEmitterDisplay(detailInvoice)} • Destinatário: {detailInvoice && getRecipientDisplay(detailInvoice)}
               </DialogDescription>
               {detailInvoice && detailInvoice.items.some((i) => (i as { goesToStock?: boolean }).goesToStock) && (
                 <Button type="button" variant="outline" size="sm" className="mt-2 w-fit" onClick={openShipmentModal}>
@@ -2039,116 +1993,6 @@ export const Revenues = () => {
                 Cancelar
               </Button>
               <Button onClick={handleCreateShipment}>Registrar saída</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Create Supplier Dialog */}
-        <Dialog open={showSupplierModal} onOpenChange={(open) => {
-          setShowSupplierModal(open);
-          if (!open) {
-            setSupplierFormError(null);
-            setSupplierForm({
-              nome: '',
-              personType: 'FISICA',
-              cpfCnpj: '',
-              email: '',
-              phone: '',
-              supplyCategories: '',
-            });
-          }
-        }}>
-          <DialogContent className="max-w-md max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
-            <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-              <DialogTitle>Novo Fornecedor</DialogTitle>
-              <DialogDescription>
-                Cadastre um novo fornecedor rapidamente
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex-1 min-h-0 overflow-y-auto px-6">
-            {supplierFormError && (
-              <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
-                {supplierFormError}
-              </div>
-            )}
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="supplier-nome">Nome *</Label>
-                <Input
-                  id="supplier-nome"
-                  value={supplierForm.nome}
-                  onChange={(e) => {
-                    setSupplierForm({ ...supplierForm, nome: e.target.value });
-                    if (supplierFormError) setSupplierFormError(null);
-                  }}
-                  placeholder="Nome completo ou razão social"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="supplier-personType">Tipo de pessoa *</Label>
-                <Select
-                  value={supplierForm.personType}
-                  onValueChange={(v) => setSupplierForm({ ...supplierForm, personType: v as 'FISICA' | 'JURIDICA' })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FISICA">Pessoa física</SelectItem>
-                    <SelectItem value="JURIDICA">Pessoa jurídica</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="supplier-cpfCnpj">CPF/CNPJ</Label>
-                <Input
-                  id="supplier-cpfCnpj"
-                  value={supplierForm.cpfCnpj}
-                  onChange={(e) => setSupplierForm({ ...supplierForm, cpfCnpj: e.target.value })}
-                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="supplier-email">E-mail *</Label>
-                <Input
-                  id="supplier-email"
-                  type="email"
-                  value={supplierForm.email}
-                  onChange={(e) => {
-                    setSupplierForm({ ...supplierForm, email: e.target.value });
-                    if (supplierFormError) setSupplierFormError(null);
-                  }}
-                  placeholder="email@exemplo.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="supplier-phone">Telefone</Label>
-                <Input
-                  id="supplier-phone"
-                  type="tel"
-                  value={supplierForm.phone}
-                  onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })}
-                  placeholder="(00) 00000-0000"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="supplier-supplyCategories">Categorias de fornecimento</Label>
-                <Input
-                  id="supplier-supplyCategories"
-                  value={supplierForm.supplyCategories}
-                  onChange={(e) => setSupplierForm({ ...supplierForm, supplyCategories: e.target.value })}
-                  placeholder="Ex: Insumos, Máquinas"
-                />
-              </div>
-            </div>
-            </div>
-            <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-              <Button variant="outline" onClick={() => setShowSupplierModal(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleCreateSupplier}>
-                Cadastrar
-              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

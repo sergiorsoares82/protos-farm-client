@@ -195,7 +195,7 @@ export const LandRegistries = () => {
       setSelectedLandRegistry(null);
     } catch (err: unknown) {
       console.error('Error saving land registry owners:', err);
-      setFormError(err instanceof Error ? err.message : 'Falha ao salvar proprietários da matrícula');
+      setFormError(err instanceof Error ? err.message : 'Falha ao salvar produtores da matrícula');
     }
   };
 
@@ -248,7 +248,7 @@ export const LandRegistries = () => {
           <div>
             <h1 className="text-3xl font-bold">Matrículas</h1>
             <p className="text-muted-foreground">
-              Cadastre e gerencie matrículas de cartório. Vincule a um imóvel rural e aos proprietários.
+              Cadastre e gerencie matrículas de cartório. Vincule a um imóvel rural e aos produtores.
             </p>
           </div>
           <div className="flex gap-2">
@@ -355,7 +355,7 @@ export const LandRegistries = () => {
                       </div>
                       <Button variant="outline" size="sm" onClick={() => openOwnersModal(lr)} className="shrink-0">
                         <Users className="h-4 w-4 mr-1" />
-                        Proprietários
+                        Produtores
                       </Button>
                     </div>
                   </CardContent>
@@ -507,7 +507,7 @@ export const LandRegistries = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Proprietários da matrícula */}
+      {/* Modal: Produtores da matrícula */}
       <Dialog
         open={showOwnersModal}
         onOpenChange={(open) => {
@@ -517,10 +517,10 @@ export const LandRegistries = () => {
       >
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Proprietários da matrícula</DialogTitle>
+            <DialogTitle>Produtores da matrícula</DialogTitle>
             <DialogDescription>
               {selectedLandRegistry
-                ? `Matrícula ${selectedLandRegistry.numeroMatricula} – ${selectedLandRegistry.cartorio}. Vincule uma ou mais pessoas (proprietários) a esta matrícula.`
+                ? `Matrícula ${selectedLandRegistry.numeroMatricula} – ${selectedLandRegistry.cartorio}. Vincule uma ou mais pessoas (produtores) a esta matrícula.`
                 : ''}
             </DialogDescription>
           </DialogHeader>
@@ -530,7 +530,7 @@ export const LandRegistries = () => {
           <div className="space-y-4 py-4">
             {farmOwners.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Cadastre pessoas com papel de proprietário em Pessoas / Proprietários antes de vincular à matrícula.
+                Cadastre pessoas com papel de produtor em Pessoas / Produtores antes de vincular à matrícula.
               </p>
             ) : (
               <>
@@ -538,7 +538,7 @@ export const LandRegistries = () => {
                   {ownersForm.map((row, index) => (
                     <div key={index} className="flex flex-wrap items-end gap-2 p-2 border rounded-md">
                       <div className="flex-1 min-w-[140px] space-y-1">
-                        <Label className="text-xs">Proprietário</Label>
+                        <Label className="text-xs">Produtor</Label>
                         <Select value={row.personId} onValueChange={(v) => updateOwnerRow(index, 'personId', v)}>
                           <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                           <SelectContent>
@@ -584,7 +584,7 @@ export const LandRegistries = () => {
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={addOwnerRow}>
                   <Plus className="h-4 w-4 mr-1" />
-                  Adicionar proprietário
+                  Adicionar produtor
                 </Button>
               </>
             )}
@@ -592,7 +592,7 @@ export const LandRegistries = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowOwnersModal(false); setSelectedLandRegistry(null); }}>Cancelar</Button>
             <Button onClick={handleSaveOwners} disabled={farmOwners.length === 0 || ownersForm.every((o) => !o.personId)}>
-              Salvar proprietários
+              Salvar produtores
             </Button>
           </DialogFooter>
         </DialogContent>
