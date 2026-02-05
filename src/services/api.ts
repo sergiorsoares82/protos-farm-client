@@ -220,7 +220,7 @@ export interface LandRegistry {
 }
 
 export interface CreateLandRegistryRequest {
-  ruralPropertyId?: string;
+  ruralPropertyId?: string | null;
   numeroMatricula: string;
   cartorio: string;
   dataRegistro?: string;
@@ -1431,6 +1431,19 @@ class ApiService {
   async createLandRegistry(body: CreateLandRegistryRequest): Promise<LandRegistry> {
     const response = await this.fetchWithRetry(`${this.baseUrl}/api/land-registries`, {
       method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(body),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: LandRegistry }>(response);
+    return data.data;
+  }
+
+  async updateLandRegistry(
+    id: string,
+    body: Partial<CreateLandRegistryRequest>,
+  ): Promise<LandRegistry> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/land-registries/${id}`, {
+      method: 'PUT',
       headers: this.getAuthHeaders(),
       body: JSON.stringify(body),
     });

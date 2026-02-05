@@ -24,6 +24,7 @@ import {
   apiService,
   RuralProperty,
   CreateRuralPropertyRequest,
+  LandRegistry,
 } from '@/services/api';
 
 const ITEMS_PER_PAGE = 10;
@@ -53,9 +54,12 @@ export const RuralProperties = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showCreatePropertyModal, setShowCreatePropertyModal] = useState(false);
   const [showEditPropertyModal, setShowEditPropertyModal] = useState(false);
+  const [showRegistriesModal, setShowRegistriesModal] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [selectedProperty, setSelectedProperty] = useState<RuralProperty | null>(null);
+  const [landRegistries, setLandRegistries] = useState<LandRegistry[]>([]);
+  const [selectedRegistryIds, setSelectedRegistryIds] = useState<string[]>([]);
 
   const [propertyForm, setPropertyForm] = useState({
     nomeImovelIncra: '',
@@ -78,7 +82,9 @@ export const RuralProperties = () => {
       setLoading(true);
       setError(null);
       const propsData = await apiService.getRuralProperties();
+      const regsData = await apiService.getLandRegistries();
       setRuralProperties(propsData);
+      setLandRegistries(regsData);
     } catch (err: unknown) {
       console.error('Error loading rural properties:', err);
       setError(err instanceof Error ? err.message : 'Falha ao carregar imóveis rurais');
@@ -124,6 +130,53 @@ export const RuralProperties = () => {
     } catch (err: unknown) {
       console.error('Error deleting rural property:', err);
       setError(err instanceof Error ? err.message : 'Falha ao excluir imóvel rural');
+    }
+  };
+
+  const openRegistriesModal = (prop: RuralProperty) => {
+    setSelectedProperty(prop);
+    const currentIds = landRegistries
+      .filter((lr) => lr.ruralPropertyId === prop.id)
+      .map((lr) => lr.id);
+    setSelectedRegistryIds(currentIds);
+    setShowRegistriesModal(true);
+  };
+
+  const toggleRegistrySelection = (id: string, checked: boolean) => {
+    setSelectedRegistryIds((prev) =>
+      checked ? [...prev, id] : prev.filter((rid) => rid !== id),
+    );
+  };
+
+  const handleSaveRegistries = async () => {
+    if (!selectedProperty) return;
+    try {
+      setFormError(null);
+      const updates: Promise<LandRegistry>[] = [];
+      for (const lr of landRegistries) {
+        const shouldLink = selectedRegistryIds.includes(lr.id);
+        const isLinked = lr.ruralPropertyId === selectedProperty.id;
+        if (shouldLink === isLinked) continue;
+        updates.push(
+          apiService.updateLandRegistry(lr.id, {
+            ruralPropertyId: shouldLink ? selectedProperty.id : null,
+          }),
+        );
+      }
+      if (updates.length) {
+        await Promise.all(updates);
+        await loadData();
+      }
+      setShowRegistriesModal(false);
+      setSelectedProperty(null);
+      setSelectedRegistryIds([]);
+    } catch (err: unknown) {
+      console.error('Error updating land registries for property:', err);
+      setFormError(
+        err instanceof Error
+          ? err.message
+          : 'Falha ao atualizar matrículas vinculadas ao imóvel rural',
+      );
     }
   };
 
@@ -273,46 +326,76 @@ export const RuralProperties = () => {
           </Card>
         ) : (
           <div className="grid gap-4">
-            {paginatedProperties.map((prop) => (
-              <Card key={prop.id}>
-                <CardContent className="pt-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <h3 className="text-lg font-semibold">{prop.nomeImovelIncra}</h3>
-                      <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                        {prop.codigoSncr && <span>SNCR: {prop.codigoSncr}</span>}
-                        {prop.nirf && <span>NIRF: {prop.nirf}</span>}
-                        {(prop.municipio || prop.uf) && (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="h-4 w-4" />
-                            {[prop.municipio, prop.uf].filter(Boolean).join(' / ')}
-                          </span>
-                        )}
+            {paginatedProperties.map((prop) => {
+              const linkedRegistries = landRegistries.filter(
+                (lr) => lr.ruralPropertyId === prop.id,
+              );
+              const totalAreaHa = linkedRegistries.reduce(
+                (sum, lr) => sum + (lr.areaHa != null ? Number(lr.areaHa) : 0),
+                0,
+              );
+              return (
+                <Card key={prop.id}>
+                  <CardContent className="pt-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-semibold">{prop.nomeImovelIncra}</h3>
+                        <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                          {prop.codigoSncr && <span>SNCR: {prop.codigoSncr}</span>}
+                          {prop.nirf && <span>NIRF: {prop.nirf}</span>}
+                          {(prop.municipio || prop.uf) && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-4 w-4" />
+                              {[prop.municipio, prop.uf].filter(Boolean).join(' / ')}
+                            </span>
+                          )}
+                          {linkedRegistries.length > 0 && (
+                            <span>
+                              Matrículas:{' '}
+                              {linkedRegistries
+                                .map((lr) => `${lr.numeroMatricula} – ${lr.cartorio}`)
+                                .join(', ')}
+                            </span>
+                          )}
+                          {totalAreaHa > 0 && (
+                            <span>
+                              Área total das matrículas vinculadas:{' '}
+                              {totalAreaHa.toLocaleString('pt-BR')} ha
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openRegistriesModal(prop)}
+                        >
+                          Matrículas
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => openEditProperty(prop)}
+                          title="Editar"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleDeleteProperty(prop.id)}
+                          title="Excluir"
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex gap-2 shrink-0">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => openEditProperty(prop)}
-                        title="Editar"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleDeleteProperty(prop.id)}
-                        title="Excluir"
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
 
@@ -333,10 +416,21 @@ export const RuralProperties = () => {
         <Card>
           <CardHeader>
             <CardTitle>Resumo</CardTitle>
-            <CardDescription>Total de imóveis rurais cadastrados</CardDescription>
+            <CardDescription>Total de imóveis rurais cadastrados e área total das matrículas vinculadas</CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{ruralProperties.length}</p>
+          <CardContent className="flex flex-col sm:flex-row gap-6 sm:items-center">
+            <div>
+              <p className="text-sm text-muted-foreground">Imóveis rurais</p>
+              <p className="text-2xl font-bold">{ruralProperties.length}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Área total (ha) das matrículas</p>
+              <p className="text-2xl font-bold">
+                {landRegistries
+                  .reduce((sum, lr) => sum + (lr.areaHa != null ? Number(lr.areaHa) : 0), 0)
+                  .toLocaleString('pt-BR')}
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -412,6 +506,91 @@ export const RuralProperties = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowCreatePropertyModal(false); resetForm(); }}>Cancelar</Button>
             <Button onClick={handleCreateProperty}>Cadastrar imóvel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Matrículas vinculadas ao imóvel */}
+      <Dialog
+        open={showRegistriesModal}
+        onOpenChange={(open) => {
+          setShowRegistriesModal(open);
+          if (!open) {
+            setSelectedProperty(null);
+            setSelectedRegistryIds([]);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Matrículas vinculadas ao imóvel</DialogTitle>
+            <DialogDescription>
+              Selecione uma ou mais matrículas de cartório para vincular ao imóvel rural
+              {selectedProperty ? ` "${selectedProperty.nomeImovelIncra}"` : ''}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            {landRegistries.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Não há matrículas cadastradas. Cadastre em Matrículas antes de vincular ao
+                imóvel.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {landRegistries.map((lr) => (
+                  <label
+                    key={lr.id}
+                    className="flex items-start gap-2 rounded-md border p-2 cursor-pointer hover:bg-muted"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={selectedRegistryIds.includes(lr.id)}
+                      onChange={(e) => toggleRegistrySelection(lr.id, e.target.checked)}
+                    />
+                    <div className="space-y-0.5">
+                      <div className="font-medium text-sm">
+                        Matrícula {lr.numeroMatricula} – {lr.cartorio}
+                      </div>
+                      <div className="text-xs text-muted-foreground flex flex-wrap gap-2">
+                        {lr.municipio || lr.uf ? (
+                          <span>
+                            {[lr.municipio, lr.uf].filter(Boolean).join(' / ')}
+                          </span>
+                        ) : null}
+                        {lr.areaHa != null && (
+                          <span>
+                            Área: {Number(lr.areaHa).toLocaleString('pt-BR')} ha
+                          </span>
+                        )}
+                        {lr.ruralPropertyId &&
+                          (!selectedProperty || lr.ruralPropertyId !== selectedProperty.id) && (
+                            <span className="text-amber-600">
+                              Já vinculada a outro imóvel
+                            </span>
+                          )}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowRegistriesModal(false);
+                setSelectedProperty(null);
+                setSelectedRegistryIds([]);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleSaveRegistries} disabled={!selectedProperty}>
+              Salvar vínculos
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
