@@ -145,12 +145,18 @@ export interface FarmRuralPropertyItem {
   uf?: string | null;
 }
 
+export type FarmTipoExploracao = 'PROPRIO' | 'ARRENDADA';
+
 export interface Farm {
   id: string;
   tenantId: string;
   name: string;
   location?: string;
   totalArea?: number;
+  tipoExploracao: FarmTipoExploracao;
+  proprietarioNome?: string | null;
+  dataInicioArrendamento?: string | null;
+  dataFimArrendamento?: string | null;
   ruralProperties: FarmRuralPropertyItem[];
   createdAt: string;
   updatedAt: string;
@@ -160,6 +166,10 @@ export interface CreateFarmRequest {
   name: string;
   location?: string;
   totalArea?: number;
+  tipoExploracao?: FarmTipoExploracao;
+  proprietarioNome?: string | null;
+  dataInicioArrendamento?: string | null;
+  dataFimArrendamento?: string | null;
   ruralPropertyIds?: string[];
 }
 
@@ -167,6 +177,10 @@ export interface UpdateFarmRequest {
   name?: string;
   location?: string;
   totalArea?: number;
+  tipoExploracao?: FarmTipoExploracao;
+  proprietarioNome?: string | null;
+  dataInicioArrendamento?: string | null;
+  dataFimArrendamento?: string | null;
   ruralPropertyIds?: string[];
 }
 

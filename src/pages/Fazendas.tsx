@@ -32,6 +32,7 @@ import {
 import {
   apiService,
   Farm,
+  FarmTipoExploracao,
   RuralProperty,
   LandRegistry,
   CreateFarmRequest,
@@ -57,6 +58,10 @@ export const Fazendas = () => {
     name: '',
     location: '',
     totalArea: '' as string | number,
+    tipoExploracao: 'PROPRIO' as FarmTipoExploracao,
+    proprietarioNome: '',
+    dataInicioArrendamento: '',
+    dataFimArrendamento: '',
     ruralPropertyIds: [] as string[],
   });
 
@@ -115,6 +120,10 @@ export const Fazendas = () => {
       name: '',
       location: '',
       totalArea: '',
+      tipoExploracao: 'PROPRIO',
+      proprietarioNome: '',
+      dataInicioArrendamento: '',
+      dataFimArrendamento: '',
       ruralPropertyIds: [],
     });
     setFieldErrors({});
@@ -129,6 +138,7 @@ export const Fazendas = () => {
     return Object.keys(errors).length === 0;
   };
 
+  const isPropria = formData.tipoExploracao === 'PROPRIO';
   const computedAreaFromLinkedRuralProperties = useMemo(() => {
     if (!formData.ruralPropertyIds.length) return 0;
     const selectedIds = new Set(formData.ruralPropertyIds);
@@ -142,7 +152,7 @@ export const Fazendas = () => {
     if (!validateCreate()) return;
     try {
       setFormError(null);
-      const hasLinkedRuralProperties = formData.ruralPropertyIds.length > 0;
+      const hasLinkedRuralProperties = isPropria && formData.ruralPropertyIds.length > 0;
       const effectiveTotalArea =
         hasLinkedRuralProperties && computedAreaFromLinkedRuralProperties > 0
           ? computedAreaFromLinkedRuralProperties
@@ -153,7 +163,13 @@ export const Fazendas = () => {
         name: formData.name.trim(),
         ...(formData.location.trim() && { location: formData.location.trim() }),
         ...(effectiveTotalArea !== undefined && { totalArea: effectiveTotalArea }),
-        ruralPropertyIds: formData.ruralPropertyIds,
+        tipoExploracao: formData.tipoExploracao,
+        ...(formData.tipoExploracao === 'ARRENDADA' && {
+          proprietarioNome: formData.proprietarioNome.trim() || null,
+          dataInicioArrendamento: formData.dataInicioArrendamento.trim() || null,
+          dataFimArrendamento: formData.dataFimArrendamento.trim() || null,
+        }),
+        ...(isPropria && { ruralPropertyIds: formData.ruralPropertyIds }),
       };
       await apiService.createFarm(body);
       await loadData();
@@ -175,7 +191,7 @@ export const Fazendas = () => {
     }
     try {
       setError(null);
-      const hasLinkedRuralProperties = formData.ruralPropertyIds.length > 0;
+      const hasLinkedRuralProperties = isPropria && formData.ruralPropertyIds.length > 0;
       const effectiveTotalArea =
         hasLinkedRuralProperties && computedAreaFromLinkedRuralProperties > 0
           ? computedAreaFromLinkedRuralProperties
@@ -186,7 +202,14 @@ export const Fazendas = () => {
         name: formData.name.trim(),
         ...(formData.location !== undefined && { location: formData.location.trim() }),
         ...(effectiveTotalArea !== undefined && { totalArea: effectiveTotalArea }),
-        ruralPropertyIds: formData.ruralPropertyIds,
+        tipoExploracao: formData.tipoExploracao,
+        ...(formData.tipoExploracao === 'ARRENDADA' && {
+          proprietarioNome: formData.proprietarioNome.trim() || null,
+          dataInicioArrendamento: formData.dataInicioArrendamento.trim() || null,
+          dataFimArrendamento: formData.dataFimArrendamento.trim() || null,
+          ruralPropertyIds: [],
+        }),
+        ...(isPropria && { ruralPropertyIds: formData.ruralPropertyIds }),
       };
       await apiService.updateFarm(selectedFarm.id, body);
       await loadData();
@@ -215,6 +238,10 @@ export const Fazendas = () => {
       name: farm.name,
       location: farm.location ?? '',
       totalArea: farm.totalArea != null ? String(farm.totalArea) : '',
+      tipoExploracao: farm.tipoExploracao ?? 'PROPRIO',
+      proprietarioNome: farm.proprietarioNome ?? '',
+      dataInicioArrendamento: farm.dataInicioArrendamento ?? '',
+      dataFimArrendamento: farm.dataFimArrendamento ?? '',
       ruralPropertyIds: (farm.ruralProperties ?? []).map((rp) => rp.id),
     });
     setFieldErrors({});
@@ -303,6 +330,16 @@ export const Fazendas = () => {
                           <span className="flex items-center gap-1">
                             <MapPin className="h-4 w-4" />
                             {farm.location}
+                          </span>
+                        )}
+                        {(farm.tipoExploracao ?? 'PROPRIO') === 'ARRENDADA' && farm.proprietarioNome && (
+                          <span className="text-muted-foreground">Proprietário: {farm.proprietarioNome}</span>
+                        )}
+                        {(farm.tipoExploracao ?? 'PROPRIO') === 'ARRENDADA' && (farm.dataInicioArrendamento || farm.dataFimArrendamento) && (
+                          <span className="text-muted-foreground">
+                            {farm.dataInicioArrendamento && new Date(farm.dataInicioArrendamento).toLocaleDateString('pt-BR')}
+                            {farm.dataInicioArrendamento && farm.dataFimArrendamento && ' – '}
+                            {farm.dataFimArrendamento && new Date(farm.dataFimArrendamento).toLocaleDateString('pt-BR')}
                           </span>
                         )}
                         {farm.totalArea != null && (
@@ -396,6 +433,84 @@ export const Fazendas = () => {
               />
             </div>
             <div className="space-y-2">
+              <Label>Tipo de exploração</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="create-tipoExploracao"
+                    checked={formData.tipoExploracao === 'PROPRIO'}
+                    onChange={() =>
+                      setFormData({
+                        ...formData,
+                        tipoExploracao: 'PROPRIO',
+                        proprietarioNome: '',
+                        dataInicioArrendamento: '',
+                        dataFimArrendamento: '',
+                      })
+                    }
+                    className="rounded-full"
+                  />
+                  <span>Própria</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="create-tipoExploracao"
+                    checked={formData.tipoExploracao === 'ARRENDADA'}
+                    onChange={() =>
+                      setFormData({
+                        ...formData,
+                        tipoExploracao: 'ARRENDADA',
+                        ruralPropertyIds: [],
+                      })
+                    }
+                    className="rounded-full"
+                  />
+                  <span>Arrendada</span>
+                </label>
+              </div>
+            </div>
+            {formData.tipoExploracao === 'ARRENDADA' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="create-proprietarioNome">Proprietário da fazenda</Label>
+                  <Input
+                    id="create-proprietarioNome"
+                    value={formData.proprietarioNome}
+                    onChange={(e) => setFormData({ ...formData, proprietarioNome: e.target.value })}
+                    placeholder="Nome do proprietário"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="create-dataInicioArrendamento">Data de início</Label>
+                    <Input
+                      id="create-dataInicioArrendamento"
+                      type="date"
+                      value={formData.dataInicioArrendamento}
+                      onChange={(e) =>
+                        setFormData({ ...formData, dataInicioArrendamento: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="create-dataFimArrendamento">Data de fim</Label>
+                    <Input
+                      id="create-dataFimArrendamento"
+                      type="date"
+                      value={formData.dataFimArrendamento}
+                      onChange={(e) =>
+                        setFormData({ ...formData, dataFimArrendamento: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+            {formData.tipoExploracao === 'PROPRIO' && (
+              <>
+            <div className="space-y-2">
               <Label htmlFor="create-totalArea">Área total (ha)</Label>
               <Input
                 id="create-totalArea"
@@ -450,6 +565,8 @@ export const Fazendas = () => {
                 </div>
               )}
             </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowCreateModal(false); resetForm(); }}>Cancelar</Button>
@@ -488,6 +605,84 @@ export const Fazendas = () => {
                 placeholder="Ex.: Município, Estado"
               />
             </div>
+            <div className="space-y-2">
+              <Label>Tipo de exploração</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="edit-tipoExploracao"
+                    checked={formData.tipoExploracao === 'PROPRIO'}
+                    onChange={() =>
+                      setFormData({
+                        ...formData,
+                        tipoExploracao: 'PROPRIO',
+                        proprietarioNome: '',
+                        dataInicioArrendamento: '',
+                        dataFimArrendamento: '',
+                      })
+                    }
+                    className="rounded-full"
+                  />
+                  <span>Própria</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="edit-tipoExploracao"
+                    checked={formData.tipoExploracao === 'ARRENDADA'}
+                    onChange={() =>
+                      setFormData({
+                        ...formData,
+                        tipoExploracao: 'ARRENDADA',
+                        ruralPropertyIds: [],
+                      })
+                    }
+                    className="rounded-full"
+                  />
+                  <span>Arrendada</span>
+                </label>
+              </div>
+            </div>
+            {formData.tipoExploracao === 'ARRENDADA' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-proprietarioNome">Proprietário da fazenda</Label>
+                  <Input
+                    id="edit-proprietarioNome"
+                    value={formData.proprietarioNome}
+                    onChange={(e) => setFormData({ ...formData, proprietarioNome: e.target.value })}
+                    placeholder="Nome do proprietário"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-dataInicioArrendamento">Data de início</Label>
+                    <Input
+                      id="edit-dataInicioArrendamento"
+                      type="date"
+                      value={formData.dataInicioArrendamento}
+                      onChange={(e) =>
+                        setFormData({ ...formData, dataInicioArrendamento: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-dataFimArrendamento">Data de fim</Label>
+                    <Input
+                      id="edit-dataFimArrendamento"
+                      type="date"
+                      value={formData.dataFimArrendamento}
+                      onChange={(e) =>
+                        setFormData({ ...formData, dataFimArrendamento: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+            {formData.tipoExploracao === 'PROPRIO' && (
+              <>
             <div className="space-y-2">
               <Label htmlFor="edit-totalArea">Área total (ha)</Label>
               <Input
@@ -543,6 +738,8 @@ export const Fazendas = () => {
                 </div>
               )}
             </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowEditModal(false); setSelectedFarm(null); resetForm(); }}>Cancelar</Button>
