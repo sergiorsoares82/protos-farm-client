@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Loader2, FileText, Plus, X, User, MapPin, Building2 } from 'lucide-react';
+import { Search, Loader2, FileText, Plus, X, User } from 'lucide-react';
 import {
   apiService,
   Person,
@@ -38,6 +38,11 @@ import {
 
 const ITEMS_PER_PAGE = 10;
 const SITUACAO_OPTIONS = ['ATIVO', 'INATIVO', 'BAIXA', 'SUSPENSO'];
+
+type CnaeRow = {
+  codigo: string;
+  descricao: string;
+};
 
 type ParticipantRow = {
   personId: string;
@@ -54,8 +59,7 @@ const defaultForm = {
   cpfCnpj: '',
   nomeResponsavel: '',
   nomeEstabelecimento: '',
-  cnaeCodigo: '',
-  cnaeDescricao: '',
+  cnaes: [] as CnaeRow[],
   regimeApuracao: '',
   categoria: '',
   dataInscricao: '',
@@ -139,6 +143,26 @@ export const ProdutoresRurais = () => {
     return filteredList.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredList, currentPage]);
 
+  const formatCep = (value: string): string => {
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+    if (!digits) return '';
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 5) {
+      return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+    }
+    return `${digits.slice(0, 2)}.${digits.slice(2, 5)}-${digits.slice(5)}`;
+  };
+
+  const formatCnaeCodigo = (value: string): string => {
+    const digits = value.replace(/\D/g, '').slice(0, 7);
+    if (!digits) return '';
+    if (digits.length <= 4) return digits;
+    if (digits.length <= 5) {
+      return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+    }
+    return `${digits.slice(0, 4)}-${digits.slice(4, 5)}/${digits.slice(5)}`;
+  };
+
   const formatCpf = (value: string): string => {
     const digits = value.replace(/\D/g, '').slice(0, 11);
     if (!digits) return '';
@@ -170,6 +194,28 @@ export const ProdutoresRurais = () => {
 
   const openEdit = (sr: StateRegistration) => {
     setEditingId(sr.id);
+    let cnaes: CnaeRow[] = [];
+    if (sr.cnaeDescricao) {
+      try {
+        const parsed = JSON.parse(sr.cnaeDescricao);
+        if (Array.isArray(parsed)) {
+          cnaes = parsed.map((c: any) => ({
+            codigo: typeof c.codigo === 'string' ? c.codigo : '',
+            descricao: typeof c.descricao === 'string' ? c.descricao : '',
+          }));
+        }
+      } catch {
+        // not JSON, fallback below
+      }
+    }
+    if (!cnaes.length && (sr.cnaeCodigo || sr.cnaeDescricao)) {
+      cnaes = [
+        {
+          codigo: sr.cnaeCodigo ?? '',
+          descricao: sr.cnaeDescricao ?? '',
+        },
+      ];
+    }
     setFormData({
       personId: sr.personId ?? '',
       numeroIe: sr.numeroIe ?? '',
@@ -178,8 +224,7 @@ export const ProdutoresRurais = () => {
       cpfCnpj: sr.cpfCnpj ?? '',
       nomeResponsavel: sr.nomeResponsavel ?? '',
       nomeEstabelecimento: sr.nomeEstabelecimento ?? '',
-      cnaeCodigo: sr.cnaeCodigo ?? '',
-      cnaeDescricao: sr.cnaeDescricao ?? '',
+      cnaes,
       regimeApuracao: sr.regimeApuracao ?? '',
       categoria: sr.categoria ?? '',
       dataInscricao: sr.dataInscricao ?? '',
@@ -245,6 +290,28 @@ export const ProdutoresRurais = () => {
     }));
   };
 
+  const addCnae = () => {
+    setFormData((prev) => ({
+      ...prev,
+      cnaes: [...prev.cnaes, { codigo: '', descricao: '' }],
+    }));
+  };
+
+  const updateCnae = (index: number, field: 'codigo' | 'descricao', value: string) => {
+    setFormData((prev) => {
+      const next = [...prev.cnaes];
+      next[index] = { ...next[index], [field]: value };
+      return { ...prev, cnaes: next };
+    });
+  };
+
+  const removeCnae = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      cnaes: prev.cnaes.filter((_, i) => i !== index),
+    }));
+  };
+
   const buildPayload = (): CreateStateRegistrationRequest => ({
     personId: formData.personId,
     numeroIe: formData.numeroIe.trim(),
@@ -253,8 +320,6 @@ export const ProdutoresRurais = () => {
     ...(formData.cpfCnpj.trim() && { cpfCnpj: formData.cpfCnpj.trim() }),
     ...(formData.nomeResponsavel.trim() && { nomeResponsavel: formData.nomeResponsavel.trim() }),
     ...(formData.nomeEstabelecimento.trim() && { nomeEstabelecimento: formData.nomeEstabelecimento.trim() }),
-    ...(formData.cnaeCodigo.trim() && { cnaeCodigo: formData.cnaeCodigo.trim() }),
-    ...(formData.cnaeDescricao.trim() && { cnaeDescricao: formData.cnaeDescricao.trim() }),
     ...(formData.regimeApuracao.trim() && { regimeApuracao: formData.regimeApuracao.trim() }),
     ...(formData.categoria.trim() && { categoria: formData.categoria.trim() }),
     ...(formData.dataInscricao.trim() && { dataInscricao: formData.dataInscricao.trim() }),
@@ -268,6 +333,18 @@ export const ProdutoresRurais = () => {
     ...(formData.numero.trim() && { numero: formData.numero.trim() }),
     ...(formData.complemento.trim() && { complemento: formData.complemento.trim() }),
     ...(formData.referenciaLocalizacao.trim() && { referenciaLocalizacao: formData.referenciaLocalizacao.trim() }),
+    ...(formData.cnaes &&
+      formData.cnaes.length > 0 && {
+        cnaeCodigo: formData.cnaes[0].codigo.trim() || undefined,
+        cnaeDescricao: JSON.stringify(
+          formData.cnaes
+            .map((c) => ({
+              codigo: c.codigo.trim(),
+              descricao: c.descricao.trim(),
+            }))
+            .filter((c) => c.codigo || c.descricao),
+        ),
+      }),
     optanteProgramaLeite: formData.optanteProgramaLeite,
     participants: formData.participants
       .filter((p) => p.cpf.trim() && p.nome.trim())
@@ -536,21 +613,45 @@ export const ProdutoresRurais = () => {
                     placeholder="FAZENDA LIMEIRA"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>CNAE (código)</Label>
-                  <Input
-                    value={formData.cnaeCodigo}
-                    onChange={(e) => setForm({ cnaeCodigo: e.target.value })}
-                    placeholder="0134-2/00"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>CNAE (descrição)</Label>
-                  <Input
-                    value={formData.cnaeDescricao}
-                    onChange={(e) => setForm({ cnaeDescricao: e.target.value })}
-                    placeholder="Cultivo de café"
-                  />
+                <div className="space-y-2 md:col-span-2">
+                  <Label>CNAE(s)</Label>
+                  <div className="space-y-2">
+                    {formData.cnaes.map((cnae, index) => (
+                      <div key={index} className="flex flex-col md:flex-row gap-2 items-center">
+                        <Input
+                          className="w-full md:w-40"
+                          placeholder="0134-2/00"
+                          value={cnae.codigo}
+                          onChange={(e) =>
+                            updateCnae(index, 'codigo', formatCnaeCodigo(e.target.value))
+                          }
+                          maxLength={9}
+                        />
+                        <Input
+                          className="w-full flex-1"
+                          placeholder="Cultivo de café"
+                          value={cnae.descricao}
+                          onChange={(e) => updateCnae(index, 'descricao', e.target.value)}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeCnae(index)}
+                          className="self-start md:self-center"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button type="button" variant="outline" size="sm" onClick={addCnae}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar CNAE
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Você pode cadastrar um ou mais CNAE para este produtor rural.
+                    </p>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Regime de apuração</Label>
@@ -610,8 +711,9 @@ export const ProdutoresRurais = () => {
                   <Label>CEP</Label>
                   <Input
                     value={formData.cep}
-                    onChange={(e) => setForm({ cep: e.target.value })}
-                    placeholder="37250-000"
+                    onChange={(e) => setForm({ cep: formatCep(e.target.value) })}
+                    placeholder="37.250-000"
+                    maxLength={10}
                   />
                 </div>
                 <div className="space-y-2">

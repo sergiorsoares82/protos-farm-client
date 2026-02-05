@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Search, Loader2, MapPin, Plus, X, FileText } from 'lucide-react';
+import { Search, Loader2, MapPin, Plus, X, FileText, Edit, Trash2 } from 'lucide-react';
 import {
   apiService,
   RuralProperty,
@@ -52,8 +52,10 @@ export const RuralProperties = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showCreatePropertyModal, setShowCreatePropertyModal] = useState(false);
+  const [showEditPropertyModal, setShowEditPropertyModal] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [selectedProperty, setSelectedProperty] = useState<RuralProperty | null>(null);
 
   const [propertyForm, setPropertyForm] = useState({
     nomeImovelIncra: '',
@@ -95,6 +97,34 @@ export const RuralProperties = () => {
     });
     setFieldErrors({});
     setFormError(null);
+  };
+
+  const openEditProperty = (prop: RuralProperty) => {
+    setSelectedProperty(prop);
+    setPropertyForm({
+      nomeImovelIncra: prop.nomeImovelIncra,
+      codigoSncr: prop.codigoSncr ?? '',
+      nirf: prop.nirf ?? '',
+      municipio: prop.municipio ?? '',
+      uf: prop.uf ?? '',
+    });
+    setFieldErrors({});
+    setFormError(null);
+    setShowEditPropertyModal(true);
+  };
+
+  const handleDeleteProperty = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este imóvel rural? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+    try {
+      setError(null);
+      await apiService.deleteRuralProperty(id);
+      await loadData();
+    } catch (err: unknown) {
+      console.error('Error deleting rural property:', err);
+      setError(err instanceof Error ? err.message : 'Falha ao excluir imóvel rural');
+    }
   };
 
   const filteredProperties = useMemo(() => {
@@ -139,6 +169,37 @@ export const RuralProperties = () => {
     } catch (err: unknown) {
       console.error('Error creating rural property:', err);
       setFormError(err instanceof Error ? err.message : 'Falha ao cadastrar imóvel rural');
+    }
+  };
+
+  const handleUpdateProperty = async () => {
+    if (!selectedProperty) return;
+    const errors: Record<string, string> = {};
+    if (!propertyForm.nomeImovelIncra.trim()) {
+      errors.nomeImovelIncra = 'Nome do imóvel (INCRA) é obrigatório';
+    }
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setFormError('Corrija os campos indicados.');
+      return;
+    }
+    try {
+      setFormError(null);
+      const body: Partial<CreateRuralPropertyRequest> = {
+        nomeImovelIncra: propertyForm.nomeImovelIncra.trim(),
+        ...(propertyForm.codigoSncr.trim() && { codigoSncr: propertyForm.codigoSncr }),
+        ...(propertyForm.nirf.trim() && { nirf: propertyForm.nirf }),
+        ...(propertyForm.municipio.trim() && { municipio: propertyForm.municipio }),
+        ...(propertyForm.uf.trim() && { uf: propertyForm.uf }),
+      };
+      await apiService.updateRuralProperty(selectedProperty.id, body);
+      await loadData();
+      setShowEditPropertyModal(false);
+      setSelectedProperty(null);
+      resetForm();
+    } catch (err: unknown) {
+      console.error('Error updating rural property:', err);
+      setFormError(err instanceof Error ? err.message : 'Falha ao atualizar imóvel rural');
     }
   };
 
@@ -228,6 +289,25 @@ export const RuralProperties = () => {
                           </span>
                         )}
                       </div>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => openEditProperty(prop)}
+                        title="Editar"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleDeleteProperty(prop.id)}
+                        title="Excluir"
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -332,6 +412,122 @@ export const RuralProperties = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowCreatePropertyModal(false); resetForm(); }}>Cancelar</Button>
             <Button onClick={handleCreateProperty}>Cadastrar imóvel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Editar imóvel rural */}
+      <Dialog
+        open={showEditPropertyModal}
+        onOpenChange={(open) => {
+          setShowEditPropertyModal(open);
+          if (!open) {
+            setSelectedProperty(null);
+            resetForm();
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar imóvel rural</DialogTitle>
+            <DialogDescription>
+              Altere os dados da unidade de cadastro rural (INCRA/CNIR).
+            </DialogDescription>
+          </DialogHeader>
+          {formError && (
+            <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
+              {formError}
+            </div>
+          )}
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="prop-nome-edit">Nome do imóvel (INCRA) *</Label>
+              <Input
+                id="prop-nome-edit"
+                value={propertyForm.nomeImovelIncra}
+                onChange={(e) =>
+                  setPropertyForm({ ...propertyForm, nomeImovelIncra: e.target.value })
+                }
+                placeholder="Ex.: Fazenda Esperança (cadastro INCRA)"
+                className={fieldErrors.nomeImovelIncra ? 'border-destructive' : ''}
+              />
+              {fieldErrors.nomeImovelIncra && (
+                <p className="text-sm text-destructive">{fieldErrors.nomeImovelIncra}</p>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="prop-sncr-edit">Código do Imóvel Rural (INCRA)</Label>
+                <Input
+                  id="prop-sncr-edit"
+                  value={propertyForm.codigoSncr}
+                  onChange={(e) =>
+                    setPropertyForm({
+                      ...propertyForm,
+                      codigoSncr: maskCodigoSncr(e.target.value),
+                    })
+                  }
+                  placeholder="Ex.: 123.123.123.123-1"
+                  maxLength={17}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="prop-nirf-edit">NIRF</Label>
+                <Input
+                  id="prop-nirf-edit"
+                  value={propertyForm.nirf}
+                  onChange={(e) =>
+                    setPropertyForm({ ...propertyForm, nirf: maskCib(e.target.value) })
+                  }
+                  placeholder="Ex.: 1111111-1"
+                  maxLength={9}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="prop-municipio-edit">Município</Label>
+                <Input
+                  id="prop-municipio-edit"
+                  value={propertyForm.municipio}
+                  onChange={(e) =>
+                    setPropertyForm({ ...propertyForm, municipio: e.target.value })
+                  }
+                  placeholder="Ex.: Nepomuceno"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="prop-uf-edit">UF</Label>
+                <Input
+                  id="prop-uf-edit"
+                  value={propertyForm.uf}
+                  onChange={(e) =>
+                    setPropertyForm({
+                      ...propertyForm,
+                      uf: e.target.value.toUpperCase().slice(0, 2),
+                    })
+                  }
+                  placeholder="MG"
+                  maxLength={2}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowEditPropertyModal(false);
+                setSelectedProperty(null);
+                resetForm();
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleUpdateProperty}>
+              Salvar alterações
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

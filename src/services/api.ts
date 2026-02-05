@@ -1401,6 +1401,24 @@ class ApiService {
     return data.data;
   }
 
+  async updateRuralProperty(id: string, body: Partial<CreateRuralPropertyRequest>): Promise<RuralProperty> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/rural-properties/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(body),
+    });
+    const data = await this.handleResponse<{ success: boolean; data: RuralProperty }>(response);
+    return data.data;
+  }
+
+  async deleteRuralProperty(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/rural-properties/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    await this.handleResponse<{ success: boolean }>(response);
+  }
+
   async getLandRegistries(): Promise<LandRegistry[]> {
     const response = await this.fetchWithRetry(`${this.baseUrl}/api/land-registries`, {
       method: 'GET',
