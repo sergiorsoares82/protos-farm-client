@@ -139,6 +139,17 @@ export const ProdutoresRurais = () => {
     return filteredList.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredList, currentPage]);
 
+  const formatCpf = (value: string): string => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (!digits) return '';
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    if (digits.length <= 9) {
+      return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    }
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  };
+
   const formatNumeroIe = (value: string): string => {
     const digits = value.replace(/\D/g, '').slice(0, 13);
     if (!digits) return '';
@@ -501,11 +512,12 @@ export const ProdutoresRurais = () => {
                   </Select>
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label>CPF/CNPJ</Label>
+                  <Label>CPF</Label>
                   <Input
                     value={formData.cpfCnpj}
-                    onChange={(e) => setForm({ cpfCnpj: e.target.value })}
+                    onChange={(e) => setForm({ cpfCnpj: formatCpf(e.target.value) })}
                     placeholder="222.283.066-49"
+                    maxLength={14}
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">
