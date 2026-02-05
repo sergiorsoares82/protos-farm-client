@@ -123,7 +123,7 @@ export const ProdutoresRurais = () => {
     }
   };
 
-  /** Apenas proprietários (pessoas com role FARM_OWNER) para o select de responsável. */
+  /** Proprietários (pessoas com role FARM_OWNER) para a aba Participantes. */
   const proprietarios = useMemo(
     () => persons.filter((p) => p.roles?.FARM_OWNER),
     [persons]
@@ -319,7 +319,7 @@ export const ProdutoresRurais = () => {
   };
 
   const buildPayload = (): CreateStateRegistrationRequest => ({
-    personId: formData.personId,
+    ...(formData.personId?.trim() && { personId: formData.personId.trim() }),
     ruralPropertyId:
       formData.ruralPropertyId === ''
         ? null
@@ -367,7 +367,6 @@ export const ProdutoresRurais = () => {
 
   const handleSubmit = async () => {
     const errors: Record<string, string> = {};
-    if (!formData.personId.trim()) errors.personId = 'Responsável (pessoa) é obrigatório';
     if (!formData.numeroIe.trim()) errors.numeroIe = 'Número da IE é obrigatório';
     if (!formData.uf.trim()) errors.uf = 'UF é obrigatória';
     setFieldErrors(errors);
@@ -475,7 +474,7 @@ export const ProdutoresRurais = () => {
                         {sr.nomeResponsavel && (
                           <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                             <User className="h-3 w-3" />
-                            {personName(sr.personId)}
+                            {sr.personId ? personName(sr.personId) : '—'}
                           </p>
                         )}
                       </div>
@@ -536,28 +535,6 @@ export const ProdutoresRurais = () => {
             </TabsList>
             <TabsContent value="cadastrais" className="space-y-4 pt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Responsável (pessoa) *</Label>
-                  <Select
-                    value={formData.personId || '__none__'}
-                    onValueChange={(v) => setForm({ personId: v === '__none__' ? '' : v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o proprietário responsável" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— Selecione —</SelectItem>
-                      {proprietarios.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.nome} {p.cpfCnpj ? `(${p.cpfCnpj})` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldErrors.personId && (
-                    <p className="text-xs text-destructive">{fieldErrors.personId}</p>
-                  )}
-                </div>
                 <div className="space-y-2">
                   <Label>Número da IE *</Label>
                   <Input

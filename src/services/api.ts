@@ -279,7 +279,7 @@ export interface StateRegistrationParticipant {
 export interface StateRegistration {
   id: string;
   tenantId: string;
-  personId: string;
+  personId?: string | null;
   ruralPropertyId?: string | null;
   numeroIe: string;
   uf: string;
@@ -309,7 +309,7 @@ export interface StateRegistration {
 }
 
 export interface CreateStateRegistrationRequest {
-  personId: string;
+  personId?: string | null;
   ruralPropertyId?: string | null;
   numeroIe: string;
   uf: string;
