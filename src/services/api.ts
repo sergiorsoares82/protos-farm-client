@@ -266,6 +266,7 @@ export interface StateRegistration {
   id: string;
   tenantId: string;
   personId: string;
+  ruralPropertyId?: string | null;
   numeroIe: string;
   uf: string;
   situacao: string;
@@ -295,6 +296,7 @@ export interface StateRegistration {
 
 export interface CreateStateRegistrationRequest {
   personId: string;
+  ruralPropertyId?: string | null;
   numeroIe: string;
   uf: string;
   situacao?: string;

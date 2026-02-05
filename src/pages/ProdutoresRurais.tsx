@@ -34,6 +34,7 @@ import {
   StateRegistration,
   CreateStateRegistrationRequest,
   UpdateStateRegistrationRequest,
+  RuralProperty,
 } from '@/services/api';
 
 const ITEMS_PER_PAGE = 10;
@@ -53,6 +54,7 @@ type ParticipantRow = {
 
 const defaultForm = {
   personId: '',
+  ruralPropertyId: '',
   numeroIe: '',
   uf: '',
   situacao: 'ATIVO',
@@ -80,6 +82,7 @@ const defaultForm = {
 export const ProdutoresRurais = () => {
   const [list, setList] = useState<StateRegistration[]>([]);
   const [persons, setPersons] = useState<Person[]>([]);
+  const [ruralProperties, setRuralProperties] = useState<RuralProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -104,12 +107,14 @@ export const ProdutoresRurais = () => {
     try {
       setLoading(true);
       setError(null);
-      const [regsData, personsData] = await Promise.all([
+      const [regsData, personsData, propsData] = await Promise.all([
         apiService.getStateRegistrations(),
         apiService.getPersons(),
+        apiService.getRuralProperties(),
       ]);
       setList(regsData);
       setPersons(personsData);
+      setRuralProperties(propsData);
     } catch (err: unknown) {
       console.error('Error loading produtores rurais:', err);
       setError(err instanceof Error ? err.message : 'Falha ao carregar inscrições estaduais');
@@ -218,6 +223,7 @@ export const ProdutoresRurais = () => {
     }
     setFormData({
       personId: sr.personId ?? '',
+      ruralPropertyId: sr.ruralPropertyId ?? '' as any,
       numeroIe: sr.numeroIe ?? '',
       uf: sr.uf ?? '',
       situacao: sr.situacao ?? 'ATIVO',
@@ -314,6 +320,10 @@ export const ProdutoresRurais = () => {
 
   const buildPayload = (): CreateStateRegistrationRequest => ({
     personId: formData.personId,
+    ruralPropertyId:
+      formData.ruralPropertyId === ''
+        ? null
+        : formData.ruralPropertyId,
     numeroIe: formData.numeroIe.trim(),
     uf: formData.uf.trim().toUpperCase().slice(0, 2),
     situacao: formData.situacao,
@@ -612,6 +622,28 @@ export const ProdutoresRurais = () => {
                     onChange={(e) => setForm({ nomeEstabelecimento: e.target.value })}
                     placeholder="FAZENDA LIMEIRA"
                   />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Imóvel rural (1:1 com produtor, opcional)</Label>
+                  <Select
+                    value={formData.ruralPropertyId || '__none__'}
+                    onValueChange={(v) =>
+                      setForm({ ruralPropertyId: v === '__none__' ? '' : v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o imóvel rural vinculado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Nenhum —</SelectItem>
+                      {ruralProperties.map((rp) => (
+                        <SelectItem key={rp.id} value={rp.id}>
+                          {rp.codigoSncr ? `${rp.codigoSncr} – ` : ''}
+                          {rp.nomeImovelIncra}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label>CNAE(s)</Label>
