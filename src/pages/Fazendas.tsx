@@ -33,6 +33,7 @@ import {
   apiService,
   Farm,
   RuralProperty,
+  LandRegistry,
   CreateFarmRequest,
   UpdateFarmRequest,
 } from '@/services/api';
@@ -42,6 +43,7 @@ const ITEMS_PER_PAGE = 10;
 export const Fazendas = () => {
   const [farms, setFarms] = useState<Farm[]>([]);
   const [ruralProperties, setRuralProperties] = useState<RuralProperty[]>([]);
+  const [landRegistries, setLandRegistries] = useState<LandRegistry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -92,12 +94,14 @@ export const Fazendas = () => {
     try {
       setLoading(true);
       setError(null);
-      const [farmsData, ruralPropertiesData] = await Promise.all([
+      const [farmsData, ruralPropertiesData, landRegistriesData] = await Promise.all([
         apiService.getFarms(),
         apiService.getRuralProperties(),
+        apiService.getLandRegistries(),
       ]);
       setFarms(farmsData);
       setRuralProperties(ruralPropertiesData);
+      setLandRegistries(landRegistriesData ?? []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar fazendas');
       console.error('Error loading farms:', err);
@@ -125,16 +129,30 @@ export const Fazendas = () => {
     return Object.keys(errors).length === 0;
   };
 
+  const computedAreaFromLinkedRuralProperties = useMemo(() => {
+    if (!formData.ruralPropertyIds.length) return 0;
+    const selectedIds = new Set(formData.ruralPropertyIds);
+    // Soma a área das matrículas vinculadas aos imóveis rurais selecionados
+    return landRegistries
+      .filter((lr) => lr.ruralPropertyId && selectedIds.has(lr.ruralPropertyId))
+      .reduce((sum, lr) => sum + (lr.areaHa != null ? Number(lr.areaHa) : 0), 0);
+  }, [formData.ruralPropertyIds, landRegistries]);
+
   const handleCreate = async () => {
     if (!validateCreate()) return;
     try {
       setFormError(null);
+      const hasLinkedRuralProperties = formData.ruralPropertyIds.length > 0;
+      const effectiveTotalArea =
+        hasLinkedRuralProperties && computedAreaFromLinkedRuralProperties > 0
+          ? computedAreaFromLinkedRuralProperties
+          : formData.totalArea !== '' && formData.totalArea != null
+            ? Number(formData.totalArea)
+            : undefined;
       const body: CreateFarmRequest = {
         name: formData.name.trim(),
         ...(formData.location.trim() && { location: formData.location.trim() }),
-        ...(formData.totalArea !== '' && formData.totalArea != null && {
-          totalArea: Number(formData.totalArea),
-        }),
+        ...(effectiveTotalArea !== undefined && { totalArea: effectiveTotalArea }),
         ruralPropertyIds: formData.ruralPropertyIds,
       };
       await apiService.createFarm(body);
@@ -157,12 +175,17 @@ export const Fazendas = () => {
     }
     try {
       setError(null);
+      const hasLinkedRuralProperties = formData.ruralPropertyIds.length > 0;
+      const effectiveTotalArea =
+        hasLinkedRuralProperties && computedAreaFromLinkedRuralProperties > 0
+          ? computedAreaFromLinkedRuralProperties
+          : formData.totalArea === ''
+            ? undefined
+            : Number(formData.totalArea);
       const body: UpdateFarmRequest = {
         name: formData.name.trim(),
         ...(formData.location !== undefined && { location: formData.location.trim() }),
-        ...(formData.totalArea !== undefined && {
-          totalArea: formData.totalArea === '' ? undefined : Number(formData.totalArea),
-        }),
+        ...(effectiveTotalArea !== undefined && { totalArea: effectiveTotalArea }),
         ruralPropertyIds: formData.ruralPropertyIds,
       };
       await apiService.updateFarm(selectedFarm.id, body);
@@ -379,10 +402,30 @@ export const Fazendas = () => {
                 type="number"
                 step="0.01"
                 min="0"
-                value={formData.totalArea}
-                onChange={(e) => setFormData({ ...formData, totalArea: e.target.value === '' ? '' : e.target.value })}
+                value={
+                  formData.ruralPropertyIds.length && computedAreaFromLinkedRuralProperties > 0
+                    ? computedAreaFromLinkedRuralProperties
+                    : formData.totalArea
+                }
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    totalArea: e.target.value === '' ? '' : e.target.value,
+                  })
+                }
                 placeholder="0,00"
+                readOnly={formData.ruralPropertyIds.length > 0}
+                className={
+                  formData.ruralPropertyIds.length > 0
+                    ? 'bg-muted cursor-not-allowed'
+                    : undefined
+                }
               />
+              {formData.ruralPropertyIds.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  A área da fazenda é calculada automaticamente pela soma das áreas dos imóveis rurais vinculados.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Imóveis rurais</Label>
@@ -452,10 +495,30 @@ export const Fazendas = () => {
                 type="number"
                 step="0.01"
                 min="0"
-                value={formData.totalArea}
-                onChange={(e) => setFormData({ ...formData, totalArea: e.target.value === '' ? '' : e.target.value })}
+                value={
+                  formData.ruralPropertyIds.length && computedAreaFromLinkedRuralProperties > 0
+                    ? computedAreaFromLinkedRuralProperties
+                    : formData.totalArea
+                }
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    totalArea: e.target.value === '' ? '' : e.target.value,
+                  })
+                }
                 placeholder="0,00"
+                readOnly={formData.ruralPropertyIds.length > 0}
+                className={
+                  formData.ruralPropertyIds.length > 0
+                    ? 'bg-muted cursor-not-allowed'
+                    : undefined
+                }
               />
+              {formData.ruralPropertyIds.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  A área da fazenda é calculada automaticamente pela soma das áreas dos imóveis rurais vinculados.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Imóveis rurais</Label>
