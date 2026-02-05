@@ -60,18 +60,6 @@ const farmMenuItems: NavItem[] = [
     roles: 'all',
   },
   {
-    name: 'Blocos de produção',
-    path: '/production-sites',
-    icon: Sprout,
-    roles: 'all',
-  },
-  {
-    name: 'Contratos de exploração',
-    path: '/exploration-contracts',
-    icon: FileText,
-    roles: 'all',
-  },
-  {
     name: 'Produtores rurais',
     path: '/produtores-rurais',
     icon: Building2,
@@ -299,7 +287,6 @@ export const Sidebar = () => {
                     <Icon className="h-5 w-5" />
                     {item.name}
                   </Link>
-                  {/* Menu Fazenda: cadastro de fazenda, cadastro fundiário, blocos de produção, contratos de exploração */}
                   {item.path === '/dashboard' && visibleFarmItems.length > 0 && (
                     <div className="mt-1 space-y-1">
                       <button
