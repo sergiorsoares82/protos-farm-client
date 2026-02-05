@@ -35,6 +35,7 @@ import {
   CreateStateRegistrationRequest,
   UpdateStateRegistrationRequest,
   RuralProperty,
+  LandRegistry,
 } from '@/services/api';
 
 const ITEMS_PER_PAGE = 10;
@@ -55,6 +56,7 @@ type ParticipantRow = {
 const defaultForm = {
   personId: '',
   ruralPropertyId: '',
+  landRegistryIds: [] as string[],
   numeroIe: '',
   uf: '',
   situacao: 'ATIVO',
@@ -83,6 +85,7 @@ export const ProdutoresRurais = () => {
   const [list, setList] = useState<StateRegistration[]>([]);
   const [persons, setPersons] = useState<Person[]>([]);
   const [ruralProperties, setRuralProperties] = useState<RuralProperty[]>([]);
+  const [landRegistries, setLandRegistries] = useState<LandRegistry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -107,14 +110,16 @@ export const ProdutoresRurais = () => {
     try {
       setLoading(true);
       setError(null);
-      const [regsData, personsData, propsData] = await Promise.all([
+      const [regsData, personsData, propsData, landRegsData] = await Promise.all([
         apiService.getStateRegistrations(),
         apiService.getPersons(),
         apiService.getRuralProperties(),
+        apiService.getLandRegistries(),
       ]);
       setList(regsData);
       setPersons(personsData);
       setRuralProperties(propsData);
+      setLandRegistries(landRegsData ?? []);
     } catch (err: unknown) {
       console.error('Error loading produtores rurais:', err);
       setError(err instanceof Error ? err.message : 'Falha ao carregar inscrições estaduais');
@@ -224,6 +229,7 @@ export const ProdutoresRurais = () => {
     setFormData({
       personId: sr.personId ?? '',
       ruralPropertyId: sr.ruralPropertyId ?? '' as any,
+      landRegistryIds: (sr.landRegistries ?? []).map((lr) => lr.id),
       numeroIe: sr.numeroIe ?? '',
       uf: sr.uf ?? '',
       situacao: sr.situacao ?? 'ATIVO',
@@ -324,6 +330,7 @@ export const ProdutoresRurais = () => {
       formData.ruralPropertyId === ''
         ? null
         : formData.ruralPropertyId,
+    landRegistryIds: formData.landRegistryIds,
     numeroIe: formData.numeroIe.trim(),
     uf: formData.uf.trim().toUpperCase().slice(0, 2),
     situacao: formData.situacao,
@@ -471,6 +478,11 @@ export const ProdutoresRurais = () => {
                           {sr.municipio && ` · ${sr.municipio}`}
                           {sr.situacao && ` · ${sr.situacao}`}
                         </p>
+                        {(sr.landRegistries?.length ?? 0) > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Matrículas: {(sr.landRegistries ?? []).map((lr) => lr.numeroMatricula).join(', ')}
+                          </p>
+                        )}
                         {sr.nomeResponsavel && (
                           <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                             <User className="h-3 w-3" />
@@ -601,7 +613,7 @@ export const ProdutoresRurais = () => {
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label>Imóvel rural (1:1 com produtor, opcional)</Label>
+                  <Label>Imóvel rural (opcional)</Label>
                   <Select
                     value={formData.ruralPropertyId || '__none__'}
                     onValueChange={(v) =>
@@ -621,6 +633,64 @@ export const ProdutoresRurais = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Um imóvel rural pode ter várias inscrições estaduais.
+                  </p>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Matrículas vinculadas (uma ou mais)</Label>
+                  {landRegistries.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Cadastre matrículas em Matrículas antes de vincular.
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
+                      {(formData.ruralPropertyId
+                        ? landRegistries.filter(
+                            (lr) => lr.ruralPropertyId === formData.ruralPropertyId
+                          )
+                        : landRegistries
+                      ).map((lr) => (
+                        <div key={lr.id} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id={`lr-${lr.id}`}
+                            checked={formData.landRegistryIds.includes(lr.id)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setForm({
+                                landRegistryIds: checked
+                                  ? [...formData.landRegistryIds, lr.id]
+                                  : formData.landRegistryIds.filter((id) => id !== lr.id),
+                              });
+                            }}
+                            className="rounded"
+                          />
+                          <label
+                            htmlFor={`lr-${lr.id}`}
+                            className="flex-1 text-sm cursor-pointer"
+                          >
+                            {lr.numeroMatricula}
+                            {lr.cartorio && ` · ${lr.cartorio}`}
+                            {lr.areaHa != null && ` · ${Number(lr.areaHa).toLocaleString('pt-BR')} ha`}
+                          </label>
+                        </div>
+                      ))}
+                      {formData.ruralPropertyId &&
+                        landRegistries.filter(
+                          (lr) => lr.ruralPropertyId === formData.ruralPropertyId
+                        ).length === 0 && (
+                          <p className="text-sm text-muted-foreground">
+                            Nenhuma matrícula cadastrada para este imóvel. Selecione matrículas sem
+                            filtrar por imóvel ou cadastre matrículas em Matrículas.
+                          </p>
+                        )}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    A inscrição estadual pode estar vinculada a uma ou mais matrículas do imóvel
+                    rural.
+                  </p>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label>CNAE(s)</Label>

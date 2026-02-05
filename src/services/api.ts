@@ -276,11 +276,20 @@ export interface StateRegistrationParticipant {
   participation: string | null;
 }
 
+export interface StateRegistrationLandRegistryItem {
+  id: string;
+  numeroMatricula: string;
+  ruralPropertyId: string | null;
+  cartorio?: string | null;
+  areaHa?: number | null;
+}
+
 export interface StateRegistration {
   id: string;
   tenantId: string;
   personId?: string | null;
   ruralPropertyId?: string | null;
+  landRegistries: StateRegistrationLandRegistryItem[];
   numeroIe: string;
   uf: string;
   situacao: string;
@@ -311,6 +320,7 @@ export interface StateRegistration {
 export interface CreateStateRegistrationRequest {
   personId?: string | null;
   ruralPropertyId?: string | null;
+  landRegistryIds?: string[];
   numeroIe: string;
   uf: string;
   situacao?: string;
