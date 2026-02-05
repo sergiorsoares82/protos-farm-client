@@ -34,6 +34,7 @@ import { RuralProperties } from '@/pages/RuralProperties';
 import { LandRegistries } from '@/pages/LandRegistries';
 import { ProductionSites } from '@/pages/ProductionSites';
 import { ExplorationContracts } from '@/pages/ExplorationContracts';
+import { ProdutoresRurais } from '@/pages/ProdutoresRurais';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
@@ -128,6 +129,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ExplorationContracts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/produtores-rurais"
+            element={
+              <ProtectedRoute>
+                <ProdutoresRurais />
               </ProtectedRoute>
             }
           />

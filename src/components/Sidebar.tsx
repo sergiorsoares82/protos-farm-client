@@ -71,6 +71,12 @@ const farmMenuItems: NavItem[] = [
     icon: FileText,
     roles: 'all',
   },
+  {
+    name: 'Produtores rurais',
+    path: '/produtores-rurais',
+    icon: Building2,
+    roles: 'all',
+  },
 ];
 
 const peopleMenuItems: NavItem[] = [

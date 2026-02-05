@@ -253,7 +253,14 @@ export interface UpsertLandRegistryOwnersRequest {
   }[];
 }
 
-// IE e Blocos de Produção
+// IE e Blocos de Produção (produtor rural / empresa)
+
+export interface StateRegistrationParticipant {
+  id: string;
+  cpf: string;
+  nome: string;
+  participation: string | null;
+}
 
 export interface StateRegistration {
   id: string;
@@ -262,6 +269,26 @@ export interface StateRegistration {
   numeroIe: string;
   uf: string;
   situacao: string;
+  cpfCnpj?: string | null;
+  nomeResponsavel?: string | null;
+  nomeEstabelecimento?: string | null;
+  cnaeCodigo?: string | null;
+  cnaeDescricao?: string | null;
+  regimeApuracao?: string | null;
+  categoria?: string | null;
+  dataInscricao?: string | null;
+  dataFimContrato?: string | null;
+  dataSituacaoInscricao?: string | null;
+  cep?: string | null;
+  municipio?: string | null;
+  distritoPovoado?: string | null;
+  bairro?: string | null;
+  logradouro?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
+  referenciaLocalizacao?: string | null;
+  optanteProgramaLeite?: boolean;
+  participants: StateRegistrationParticipant[];
   createdAt: string;
   updatedAt: string;
 }
@@ -271,7 +298,29 @@ export interface CreateStateRegistrationRequest {
   numeroIe: string;
   uf: string;
   situacao?: string;
+  cpfCnpj?: string | null;
+  nomeResponsavel?: string | null;
+  nomeEstabelecimento?: string | null;
+  cnaeCodigo?: string | null;
+  cnaeDescricao?: string | null;
+  regimeApuracao?: string | null;
+  categoria?: string | null;
+  dataInscricao?: string | null;
+  dataFimContrato?: string | null;
+  dataSituacaoInscricao?: string | null;
+  cep?: string | null;
+  municipio?: string | null;
+  distritoPovoado?: string | null;
+  bairro?: string | null;
+  logradouro?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
+  referenciaLocalizacao?: string | null;
+  optanteProgramaLeite?: boolean;
+  participants?: { cpf: string; nome: string; participation?: string | null }[];
 }
+
+export type UpdateStateRegistrationRequest = CreateStateRegistrationRequest;
 
 export interface ProductionSite {
   id: string;
@@ -1410,6 +1459,35 @@ class ApiService {
       headers: this.getAuthHeaders(),
       body: JSON.stringify(body),
     });
+    const data = await this.handleResponse<{ success: boolean; data: StateRegistration }>(
+      response,
+    );
+    return data.data;
+  }
+
+  async getStateRegistration(id: string): Promise<StateRegistration> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/state-registrations/${id}`,
+      { method: 'GET', headers: this.getAuthHeaders() },
+    );
+    const data = await this.handleResponse<{ success: boolean; data: StateRegistration }>(
+      response,
+    );
+    return data.data;
+  }
+
+  async updateStateRegistration(
+    id: string,
+    body: UpdateStateRegistrationRequest,
+  ): Promise<StateRegistration> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/state-registrations/${id}`,
+      {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(body),
+      },
+    );
     const data = await this.handleResponse<{ success: boolean; data: StateRegistration }>(
       response,
     );
