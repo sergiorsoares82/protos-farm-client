@@ -18,10 +18,12 @@ export interface AutocompleteProps {
   className?: string
   disabled?: boolean
   emptyMessage?: string
+  /** Número mínimo de caracteres para iniciar a busca/abrir opções */
+  minSearchChars?: number
 }
 
 export const Autocomplete = React.forwardRef<HTMLInputElement, AutocompleteProps>(
-  ({ options, value, onChange, placeholder = "Digite para buscar...", className, disabled, emptyMessage = "Nenhum resultado encontrado" }, ref) => {
+  ({ options, value, onChange, placeholder = "Digite para buscar...", className, disabled, emptyMessage = "Nenhum resultado encontrado", minSearchChars = 0 }, ref) => {
     const [isOpen, setIsOpen] = React.useState(false)
     const [searchTerm, setSearchTerm] = React.useState("")
     const [highlightedIndex, setHighlightedIndex] = React.useState(-1)
@@ -33,10 +35,12 @@ export const Autocomplete = React.forwardRef<HTMLInputElement, AutocompleteProps
     const selectedOption = options.find((opt) => opt.value === value)
 
     const filteredOptions = React.useMemo(() => {
-      if (!searchTerm.trim()) return options
-      const term = searchTerm.toLowerCase()
-      return options.filter((opt) => opt.label.toLowerCase().includes(term))
-    }, [options, searchTerm])
+      const term = searchTerm.trim()
+      if (minSearchChars > 0 && term.length < minSearchChars) return []
+      if (!term) return options
+      const lower = term.toLowerCase()
+      return options.filter((opt) => opt.label.toLowerCase().includes(lower))
+    }, [options, searchTerm, minSearchChars])
 
     // Só sincroniza o texto quando o dropdown está fechado; quando aberto deixa o usuário editar
     React.useEffect(() => {
@@ -68,7 +72,8 @@ export const Autocomplete = React.forwardRef<HTMLInputElement, AutocompleteProps
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const newValue = e.target.value
       setSearchTerm(newValue)
-      setIsOpen(true)
+      const term = newValue.trim()
+      setIsOpen(minSearchChars > 0 ? term.length >= minSearchChars : true)
       setHighlightedIndex(-1)
       
       // Se o valor foi limpo, limpar a seleção
@@ -106,7 +111,8 @@ export const Autocomplete = React.forwardRef<HTMLInputElement, AutocompleteProps
     }
 
     const handleFocus = () => {
-      setIsOpen(true)
+      const term = searchTerm.trim()
+      setIsOpen(minSearchChars > 0 ? term.length >= minSearchChars : true)
     }
 
     return (
@@ -148,7 +154,7 @@ export const Autocomplete = React.forwardRef<HTMLInputElement, AutocompleteProps
             ))}
           </div>
         )}
-        {isOpen && filteredOptions.length === 0 && searchTerm.trim() && (
+        {isOpen && filteredOptions.length === 0 && searchTerm.trim().length >= minSearchChars && (
           <div className="absolute z-50 w-full mt-1 bg-popover border border-input rounded-md shadow-md">
             <div className="px-3 py-2 text-sm text-muted-foreground">
               {emptyMessage}

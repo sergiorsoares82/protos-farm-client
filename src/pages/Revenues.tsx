@@ -901,7 +901,8 @@ export const Revenues = () => {
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="grid gap-4 py-4 px-6">
-              <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr] gap-4">
+              {/* 1ª linha: emitente + datas/documento/número/série */}
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4">
                 <div className="space-y-2 min-w-0">
                   <Label>Emitente (produtor/empresa) *</Label>
                   <Autocomplete
@@ -913,19 +914,6 @@ export const Revenues = () => {
                     onChange={(value) => setFormData({ ...formData, emitterPartyId: value })}
                     placeholder="Digite para buscar..."
                     emptyMessage="Nenhum cadastrado"
-                  />
-                </div>
-                <div className="space-y-2 min-w-0">
-                  <Label>Destinatário (cliente) *</Label>
-                  <Autocomplete
-                    options={clients.map((c) => ({
-                      value: c.id,
-                      label: c.person?.nome ?? c.id,
-                    }))}
-                    value={formData.recipientClientId ?? ''}
-                    onChange={(value) => setFormData({ ...formData, recipientClientId: value })}
-                    placeholder="Digite para buscar cliente..."
-                    emptyMessage="Nenhum cliente encontrado"
                   />
                 </div>
                 <div className="space-y-2">
@@ -972,6 +960,23 @@ export const Revenues = () => {
                   />
                 </div>
               </div>
+              {/* 2ª linha: destinatário ocupando 2fr de um total de 6fr (2fr/4fr) */}
+              <div className="grid grid-cols-[2fr_4fr] gap-4">
+                <div className="space-y-2 min-w-0">
+                  <Label>Destinatário (cliente) *</Label>
+                  <Autocomplete
+                    options={clients.map((c) => ({
+                      value: c.id,
+                      label: c.person?.nome ?? c.id,
+                    }))}
+                    value={formData.recipientClientId ?? ''}
+                    onChange={(value) => setFormData({ ...formData, recipientClientId: value })}
+                    placeholder="Digite para buscar cliente..."
+                    emptyMessage="Nenhum cliente encontrado"
+                  />
+                </div>
+              </div>
+              {/* 3ª linha: observações */}
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label>Observações</Label>
@@ -1311,7 +1316,8 @@ export const Revenues = () => {
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="grid gap-4 py-4 px-6">
-              <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr] gap-4">
+              {/* 1ª linha: emitente + datas/documento/número/série */}
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4">
                 <div className="space-y-2 min-w-0">
                   <Label>Emitente (produtor/empresa) *</Label>
                   <Autocomplete
@@ -1323,19 +1329,6 @@ export const Revenues = () => {
                     onChange={(value) => setFormData({ ...formData, emitterPartyId: value })}
                     placeholder="Digite para buscar..."
                     emptyMessage="Nenhum cadastrado"
-                  />
-                </div>
-                <div className="space-y-2 min-w-0">
-                  <Label>Destinatário (cliente) *</Label>
-                  <Autocomplete
-                    options={clients.map((c) => ({
-                      value: c.id,
-                      label: c.person?.nome ?? c.id,
-                    }))}
-                    value={formData.recipientClientId ?? ''}
-                    onChange={(value) => setFormData({ ...formData, recipientClientId: value })}
-                    placeholder="Digite para buscar cliente..."
-                    emptyMessage="Nenhum cliente encontrado"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1380,6 +1373,23 @@ export const Revenues = () => {
                   />
                 </div>
               </div>
+              {/* 2ª linha: destinatário ocupando 2fr de um total de 6fr (2fr/4fr) */}
+              <div className="grid grid-cols-[2fr_4fr] gap-4">
+                <div className="space-y-2 min-w-0">
+                  <Label>Destinatário (cliente) *</Label>
+                  <Autocomplete
+                    options={clients.map((c) => ({
+                      value: c.id,
+                      label: c.person?.nome ?? c.id,
+                    }))}
+                    value={formData.recipientClientId ?? ''}
+                    onChange={(value) => setFormData({ ...formData, recipientClientId: value })}
+                    placeholder="Digite para buscar cliente..."
+                    emptyMessage="Nenhum cliente encontrado"
+                  />
+                </div>
+              </div>
+              {/* 3ª linha: observações */}
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label>Observações</Label>

@@ -1000,110 +1000,42 @@ export const Invoices = () => {
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent className="max-w-[1400px] w-[95vw] max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
             <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-              <DialogTitle>Nova nota fiscal</DialogTitle>
+              <DialogTitle>Nova despesa</DialogTitle>
               <DialogDescription>
-                Escolha o tipo (compra ou venda), emitente e destinatário; preencha itens e parcelas.
+                Preencha os dados da despesa, incluindo emitente, destinatário, itens e parcelas.
               </DialogDescription>
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="grid gap-4 py-4 px-6">
-              <div className="grid grid-cols-[140px_1fr_1fr_1fr_1fr] gap-4">
-                <div className="space-y-2">
-                  <Label>Tipo *</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(v) =>
-                      setFormData({
-                        ...formData,
-                        type: v as InvoiceType,
-                        emitterPartyId: undefined,
-                        emitterSupplierId: undefined,
-                        recipientClientId: undefined,
-                        recipientPartyId: undefined,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={InvoiceType.DESPESA}>Compra (Despesa)</SelectItem>
-                      <SelectItem value={InvoiceType.RECEITA}>Venda (Receita)</SelectItem>
-                    </SelectContent>
-                  </Select>
+              {/* 1ª linha: emitente + datas/documento/número/série */}
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-4">
+                <div className="space-y-2 min-w-0">
+                  <Label>Emitente (fornecedor) *</Label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 min-w-0">
+                      <Autocomplete
+                        options={suppliers.map((s) => ({
+                          value: s.id,
+                          label: s.person?.nome ?? s.supplyCategories ?? s.id,
+                        }))}
+                        value={formData.emitterSupplierId ?? ''}
+                        onChange={(value) => setFormData({ ...formData, emitterSupplierId: value })}
+                        placeholder="Digite pelo menos 3 letras para buscar fornecedor..."
+                        emptyMessage="Nenhum fornecedor encontrado"
+                        minSearchChars={3}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowSupplierModal(true)}
+                      title="Cadastrar novo fornecedor"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                {formData.type === InvoiceType.DESPESA ? (
-                  <>
-                    <div className="space-y-2 min-w-0">
-                      <Label>Emitente (fornecedor) *</Label>
-                      <div className="flex gap-2">
-                        <div className="flex-1 min-w-0">
-                          <Autocomplete
-                            options={suppliers.map((s) => ({
-                              value: s.id,
-                              label: s.person?.nome ?? s.supplyCategories ?? s.id,
-                            }))}
-                            value={formData.emitterSupplierId ?? ''}
-                            onChange={(value) => setFormData({ ...formData, emitterSupplierId: value })}
-                            placeholder="Digite para buscar fornecedor..."
-                            emptyMessage="Nenhum fornecedor encontrado"
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => setShowSupplierModal(true)}
-                          title="Cadastrar novo fornecedor"
-                        >
-                          <UserPlus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="space-y-2 min-w-0">
-                      <Label>Destinatário (produtor/empresa) *</Label>
-                      <Autocomplete
-                        options={stateRegistrations.map((sr) => ({
-                          value: sr.id,
-                          label: sr.nomeEstabelecimento ?? sr.nomeResponsavel ?? sr.numeroIe ?? sr.id,
-                        }))}
-                        value={formData.recipientPartyId ?? ''}
-                        onChange={(value) => setFormData({ ...formData, recipientPartyId: value })}
-                        placeholder="Digite para buscar..."
-                        emptyMessage="Nenhum cadastrado"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="space-y-2 min-w-0">
-                      <Label>Emitente (produtor/empresa) *</Label>
-                      <Autocomplete
-                        options={stateRegistrations.map((sr) => ({
-                          value: sr.id,
-                          label: sr.nomeEstabelecimento ?? sr.nomeResponsavel ?? sr.numeroIe ?? sr.id,
-                        }))}
-                        value={formData.emitterPartyId ?? ''}
-                        onChange={(value) => setFormData({ ...formData, emitterPartyId: value })}
-                        placeholder="Digite para buscar..."
-                        emptyMessage="Nenhum cadastrado"
-                      />
-                    </div>
-                    <div className="space-y-2 min-w-0">
-                      <Label>Destinatário (cliente) *</Label>
-                      <Autocomplete
-                        options={clients.map((c) => ({
-                          value: c.id,
-                          label: c.person?.nome ?? c.id,
-                        }))}
-                        value={formData.recipientClientId ?? ''}
-                        onChange={(value) => setFormData({ ...formData, recipientClientId: value })}
-                        placeholder="Digite para buscar cliente..."
-                        emptyMessage="Nenhum cliente encontrado"
-                      />
-                    </div>
-                  </>
-                )}
                 <div className="space-y-2">
                   <Label>Data de emissão *</Label>
                   <Input
@@ -1148,6 +1080,23 @@ export const Invoices = () => {
                   />
                 </div>
               </div>
+              {/* 2ª linha: destinatário ocupando 2fr de um total de 6fr (2fr/4fr) */}
+              <div className="grid grid-cols-[2fr_4fr] gap-4">
+                <div className="space-y-2 min-w-0">
+                  <Label>Destinatário (produtor/empresa) *</Label>
+                  <Autocomplete
+                    options={stateRegistrations.map((sr) => ({
+                      value: sr.id,
+                      label: sr.nomeEstabelecimento ?? sr.nomeResponsavel ?? sr.numeroIe ?? sr.id,
+                    }))}
+                    value={formData.recipientPartyId ?? ''}
+                    onChange={(value) => setFormData({ ...formData, recipientPartyId: value })}
+                    placeholder="Digite para buscar..."
+                    emptyMessage="Nenhum cadastrado"
+                  />
+                </div>
+              </div>
+              {/* 3ª linha: observações */}
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label>Observações</Label>
@@ -1478,110 +1427,54 @@ export const Invoices = () => {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-[1400px] w-[95vw] max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
             <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-              <DialogTitle>Editar nota fiscal</DialogTitle>
+              <DialogTitle>Editar despesa</DialogTitle>
               <DialogDescription>
-                Altere o cabeçalho, itens e parcelas conforme necessário.
+                Altere o cabeçalho, itens e parcelas da despesa conforme necessário.
               </DialogDescription>
             </DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="grid gap-4 py-4 px-6">
-              <div className="grid grid-cols-[140px_1fr_1fr_1fr_1fr] gap-4">
-                <div className="space-y-2">
-                  <Label>Tipo *</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(v) =>
-                      setFormData({
-                        ...formData,
-                        type: v as InvoiceType,
-                        emitterPartyId: v === InvoiceType.RECEITA ? formData.emitterPartyId : undefined,
-                        emitterSupplierId: v === InvoiceType.DESPESA ? formData.emitterSupplierId : undefined,
-                        recipientClientId: v === InvoiceType.RECEITA ? formData.recipientClientId : undefined,
-                        recipientPartyId: v === InvoiceType.DESPESA ? formData.recipientPartyId : undefined,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={InvoiceType.DESPESA}>Compra (Despesa)</SelectItem>
-                      <SelectItem value={InvoiceType.RECEITA}>Venda (Receita)</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div className="grid grid-cols-4 gap-4">
+                <div className="space-y-2 min-w-0">
+                  <Label>Emitente (fornecedor) *</Label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 min-w-0">
+                      <Autocomplete
+                        options={suppliers.map((s) => ({
+                          value: s.id,
+                          label: s.person?.nome ?? s.supplyCategories ?? s.id,
+                        }))}
+                        value={formData.emitterSupplierId ?? ''}
+                        onChange={(value) => setFormData({ ...formData, emitterSupplierId: value })}
+                        placeholder="Digite pelo menos 3 letras para buscar fornecedor..."
+                        emptyMessage="Nenhum fornecedor encontrado"
+                        minSearchChars={3}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowSupplierModal(true)}
+                      title="Cadastrar novo fornecedor"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                {formData.type === InvoiceType.DESPESA ? (
-                  <>
-                    <div className="space-y-2 min-w-0">
-                      <Label>Emitente (fornecedor) *</Label>
-                      <div className="flex gap-2">
-                        <div className="flex-1 min-w-0">
-                          <Autocomplete
-                            options={suppliers.map((s) => ({
-                              value: s.id,
-                              label: s.person?.nome ?? s.supplyCategories ?? s.id,
-                            }))}
-                            value={formData.emitterSupplierId ?? ''}
-                            onChange={(value) => setFormData({ ...formData, emitterSupplierId: value })}
-                            placeholder="Digite para buscar fornecedor..."
-                            emptyMessage="Nenhum fornecedor encontrado"
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => setShowSupplierModal(true)}
-                          title="Cadastrar novo fornecedor"
-                        >
-                          <UserPlus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="space-y-2 min-w-0">
-                      <Label>Destinatário (produtor/empresa) *</Label>
-                      <Autocomplete
-                        options={stateRegistrations.map((sr) => ({
-                          value: sr.id,
-                          label: sr.nomeEstabelecimento ?? sr.nomeResponsavel ?? sr.numeroIe ?? sr.id,
-                        }))}
-                        value={formData.recipientPartyId ?? ''}
-                        onChange={(value) => setFormData({ ...formData, recipientPartyId: value })}
-                        placeholder="Digite para buscar..."
-                        emptyMessage="Nenhum cadastrado"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="space-y-2 min-w-0">
-                      <Label>Emitente (produtor/empresa) *</Label>
-                      <Autocomplete
-                        options={stateRegistrations.map((sr) => ({
-                          value: sr.id,
-                          label: sr.nomeEstabelecimento ?? sr.nomeResponsavel ?? sr.numeroIe ?? sr.id,
-                        }))}
-                        value={formData.emitterPartyId ?? ''}
-                        onChange={(value) => setFormData({ ...formData, emitterPartyId: value })}
-                        placeholder="Digite para buscar..."
-                        emptyMessage="Nenhum cadastrado"
-                      />
-                    </div>
-                    <div className="space-y-2 min-w-0">
-                      <Label>Destinatário (cliente) *</Label>
-                      <Autocomplete
-                        options={clients.map((c) => ({
-                          value: c.id,
-                          label: c.person?.nome ?? c.id,
-                        }))}
-                        value={formData.recipientClientId ?? ''}
-                        onChange={(value) => setFormData({ ...formData, recipientClientId: value })}
-                        placeholder="Digite para buscar cliente..."
-                        emptyMessage="Nenhum cliente encontrado"
-                      />
-                    </div>
-                  </>
-                )}
+                <div className="space-y-2 min-w-0">
+                  <Label>Destinatário (produtor/empresa) *</Label>
+                  <Autocomplete
+                    options={stateRegistrations.map((sr) => ({
+                      value: sr.id,
+                      label: sr.nomeEstabelecimento ?? sr.nomeResponsavel ?? sr.numeroIe ?? sr.id,
+                    }))}
+                    value={formData.recipientPartyId ?? ''}
+                    onChange={(value) => setFormData({ ...formData, recipientPartyId: value })}
+                    placeholder="Digite para buscar..."
+                    emptyMessage="Nenhum cadastrado"
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label>Data de emissão *</Label>
                   <Input
