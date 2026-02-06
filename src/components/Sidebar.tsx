@@ -101,34 +101,41 @@ const agricultureMenuItems: NavItem[] = [
   { name: 'Seasons (Safras)', path: '/seasons', icon: CalendarRange, roles: 'all' },
 ];
 
+// Menu "Financeiro" (Receitas e Despesas)
+const financeMenuItems: NavItem[] = [
+  { name: 'Receitas', path: '/revenues', icon: FileText, roles: 'all' },
+  { name: 'Despesas', path: '/invoices', icon: FileText, roles: 'all' },
+];
+
 const navItems: NavItem[] = [
   { name: 'Dashboard', path: '/dashboard', icon: Home, roles: 'all' },
-  { name: 'Cost Centers', path: '/cost-centers', icon: Wallet, roles: 'all' },
-  { name: 'Management Accounts', path: '/management-accounts', icon: PiggyBank, roles: 'all' },
-  { name: 'Contas bancárias', path: '/bank-accounts', icon: Landmark, roles: 'all' },
   { name: 'Movimentos de Estoque', path: '/stock-movements', icon: ArrowLeftRight, roles: 'all' },
-  { name: 'Despesas', path: '/invoices', icon: FileText, roles: 'all' },
-  {
-    name: 'Tipos de pagamento',
-    path: '/invoice-financials-types',
-    icon: Banknote,
-    roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
-  },
   { name: 'Recebimento de Produtos', path: '/product-receipts', icon: Package, roles: 'all' },
   { name: 'Saída de Produtos', path: '/product-shipments', icon: Truck, roles: 'all' },
-  { name: 'Receitas', path: '/revenues', icon: FileText, roles: 'all' },
   { name: 'Machine Types', path: '/machine-types', icon: Truck, roles: 'all' },
   { name: 'Machines (Máquinas)', path: '/machines', icon: Truck, roles: 'all' },
   { name: 'Patrimônio (Ativos)', path: '/assets', icon: Box, roles: 'all' },
+  { name: 'Organization', path: '/organization', icon: Building2, roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN] },
+  { name: 'Super Admin', path: '/super-admin', icon: Shield, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Settings', path: '/settings', icon: Settings, roles: 'all' },
+];
+
+const financialMenuItems: NavItem[] = [
   {
     name: 'Cost Center Categories',
     path: '/cost-center-categories',
     icon: Tags,
     roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
   },
-  { name: 'Organization', path: '/organization', icon: Building2, roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN] },
-  { name: 'Super Admin', path: '/super-admin', icon: Shield, roles: [UserRole.SUPER_ADMIN] },
-  { name: 'Settings', path: '/settings', icon: Settings, roles: 'all' },
+  { name: 'Cost Centers', path: '/cost-centers', icon: Wallet, roles: 'all' },
+  { name: 'Management Accounts', path: '/management-accounts', icon: PiggyBank, roles: 'all' },
+  { name: 'Contas bancárias', path: '/bank-accounts', icon: Landmark, roles: 'all' },
+  {
+    name: 'Tipos de pagamento',
+    path: '/invoice-financials-types',
+    icon: Banknote,
+    roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
+  },
 ];
 
 export const Sidebar = () => {
@@ -138,7 +145,7 @@ export const Sidebar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSuperAdminOpen, setIsSuperAdminOpen] = useState(false);
   // Um único estado: qual seção está aberta. Ao clicar num link dentro da seção, não alteramos; só fechamos ao abrir outra.
-  type SectionKey = 'farm' | 'people' | 'products' | 'agriculture';
+  type SectionKey = 'farm' | 'people' | 'products' | 'agriculture' | 'finance' | 'financial';
   const [expandedSection, setExpandedSection] = useState<SectionKey | null>(null);
 
   // Manter a seção aberta quando a rota pertence a ela (ex.: navegar entre Persons e Funcionários)
@@ -147,6 +154,8 @@ export const Sidebar = () => {
     else if (peopleMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('people');
     else if (productsMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('products');
     else if (agricultureMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('agriculture');
+    else if (financeMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('finance');
+    else if (financialMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('financial');
   }, [location.pathname]);
 
   const handleLogout = () => {
@@ -168,11 +177,15 @@ export const Sidebar = () => {
   const peoplePaths = peopleMenuItems.map((i) => i.path);
   const productsPaths = productsMenuItems.map((i) => i.path);
   const agriculturePaths = agricultureMenuItems.map((i) => i.path);
+  const financePaths = financeMenuItems.map((i) => i.path);
+  const financialPaths = financialMenuItems.map((i) => i.path);
   const mainNavItems = visibleNavItems.filter((item) => {
     if (farmPaths.includes(item.path)) return false;
     if (peoplePaths.includes(item.path)) return false;
     if (productsPaths.includes(item.path)) return false;
     if (agriculturePaths.includes(item.path)) return false;
+    if (financePaths.includes(item.path)) return false;
+    if (financialPaths.includes(item.path)) return false;
     if (
       user?.role === UserRole.SUPER_ADMIN &&
       (item.path === '/organization' || item.path === '/super-admin')
@@ -213,6 +226,22 @@ export const Sidebar = () => {
     return item.roles.includes(user.role);
   });
   const isAgricultureSectionActive = agriculturePaths.some((path) => location.pathname === path);
+
+  const visibleFinanceItems = financeMenuItems.filter((item) => {
+    if (item.roles === 'all') return true;
+    if (!item.roles) return true;
+    if (!user?.role) return false;
+    return item.roles.includes(user.role);
+  });
+  const isFinanceSectionActive = financePaths.some((path) => location.pathname === path);
+
+  const visibleFinancialItems = financialMenuItems.filter((item) => {
+    if (item.roles === 'all') return true;
+    if (!item.roles) return true;
+    if (!user?.role) return false;
+    return item.roles.includes(user.role);
+  });
+  const isFinancialSectionActive = financialPaths.some((path) => location.pathname === path);
 
   const isSuperAdminSectionActive = location.pathname === '/super-admin';
 
@@ -459,6 +488,104 @@ export const Sidebar = () => {
                       {expandedSection === 'agriculture' && (
                         <div className="mt-1 space-y-1 pl-8">
                           {visibleAgricultureItems.map((subItem) => {
+                            const SubIcon = subItem.icon;
+                            const isSubActive = location.pathname === subItem.path;
+                            return (
+                              <Link
+                                key={subItem.path}
+                                to={subItem.path}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={cn(
+                                  'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors',
+                                  isSubActive
+                                    ? 'bg-primary/90 text-primary-foreground'
+                                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                )}
+                              >
+                                <SubIcon className="h-4 w-4" />
+                                {subItem.name}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Menu Financeiro: Receitas e Despesas */}
+                  {item.path === '/dashboard' && visibleFinanceItems.length > 0 && (
+                    <div className="mt-1 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedSection((s) => (s === 'finance' ? null : 'finance'))}
+                        className={cn(
+                          'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                          isFinanceSectionActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        )}
+                      >
+                        <span className="flex items-center gap-3">
+                          <Wallet className="h-5 w-5" />
+                          <span>Financeiro</span>
+                        </span>
+                        {expandedSection === 'finance' ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                      {expandedSection === 'finance' && (
+                        <div className="mt-1 space-y-1 pl-8">
+                          {visibleFinanceItems.map((subItem) => {
+                            const SubIcon = subItem.icon;
+                            const isSubActive = location.pathname === subItem.path;
+                            return (
+                              <Link
+                                key={subItem.path}
+                                to={subItem.path}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={cn(
+                                  'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors',
+                                  isSubActive
+                                    ? 'bg-primary/90 text-primary-foreground'
+                                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                )}
+                              >
+                                <SubIcon className="h-4 w-4" />
+                                {subItem.name}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Menu Cadastros do Financeiro */}
+                  {item.path === '/dashboard' && visibleFinancialItems.length > 0 && (
+                    <div className="mt-1 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedSection((s) => (s === 'financial' ? null : 'financial'))}
+                        className={cn(
+                          'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                          isFinancialSectionActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        )}
+                      >
+                        <span className="flex items-center gap-3">
+                          <Wallet className="h-5 w-5" />
+                          <span className="whitespace-nowrap">Cadastros Financeiros</span>
+                        </span>
+                        {expandedSection === 'financial' ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                      {expandedSection === 'financial' && (
+                        <div className="mt-1 space-y-1 pl-8">
+                          {visibleFinancialItems.map((subItem) => {
                             const SubIcon = subItem.icon;
                             const isSubActive = location.pathname === subItem.path;
                             return (
