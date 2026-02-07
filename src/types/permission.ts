@@ -64,6 +64,7 @@ export enum EntityType {
   
   // Reference/Configuration
   ACTIVITY_TYPE = 'ACTIVITY_TYPE',
+  OPERATION = 'OPERATION',
   UNIT_OF_MEASURE = 'UNIT_OF_MEASURE',
   UNIT_OF_MEASURE_CONVERSION = 'UNIT_OF_MEASURE_CONVERSION',
 }
@@ -146,6 +147,7 @@ export const ENTITY_CATEGORIES = {
   ],
   'Reference/Configuration': [
     EntityType.ACTIVITY_TYPE,
+    EntityType.OPERATION,
     EntityType.UNIT_OF_MEASURE,
     EntityType.UNIT_OF_MEASURE_CONVERSION,
   ],

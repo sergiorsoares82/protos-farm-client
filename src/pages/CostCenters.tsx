@@ -26,7 +26,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Building2, Plus, Pencil, Trash2, AlertCircle } from 'lucide-react';
-import { apiService, CostCenter, CostCenterType, CreateCostCenterRequest, UpdateCostCenterRequest, CostCenterCategory } from '@/services/api';
+import { apiService, CostCenter, CostCenterType, CreateCostCenterRequest, UpdateCostCenterRequest, CostCenterCategory, ActivityType } from '@/services/api';
 
 export const CostCenters = () => {
     const [items, setItems] = useState<CostCenter[]>([]);
@@ -36,6 +36,7 @@ export const CostCenters = () => {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<CostCenter | null>(null);
     const [categories, setCategories] = useState<CostCenterCategory[]>([]);
+    const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
 
     // Form state
     const [formData, setFormData] = useState<CreateCostCenterRequest>({
@@ -67,9 +68,19 @@ export const CostCenters = () => {
         }
     };
 
+    const loadActivityTypes = async () => {
+        try {
+            const data = await apiService.getActivityTypes();
+            setActivityTypes(data);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to load activity types');
+        }
+    };
+
     useEffect(() => {
         loadItems();
         loadCategories();
+        loadActivityTypes();
     }, []);
 
     // Validate form
@@ -119,6 +130,7 @@ export const CostCenters = () => {
                 description: formData.description,
                 type: formData.type,
                 categoryId: formData.categoryId,
+                activityTypeId: formData.activityTypeId,
             };
             await apiService.updateCostCenter(selectedItem.id, updates);
             setIsEditDialogOpen(false);
@@ -163,6 +175,7 @@ export const CostCenters = () => {
         });
     };
 
+
     // Open edit dialog
     const openEditDialog = (item: CostCenter) => {
         setSelectedItem(item);
@@ -171,6 +184,7 @@ export const CostCenters = () => {
             description: item.description,
             type: item.type,
             categoryId: item.categoryId,
+            activityTypeId: item.activityTypeId,
         });
         setIsEditDialogOpen(true);
     };
@@ -265,6 +279,15 @@ export const CostCenters = () => {
                                                     : 'No category'}
                                             </span>
                                         </div>
+                                        <div>
+                                            <span className="font-semibold">Tipo de atividade:</span>{' '}
+                                            <span className="inline-block px-2 py-1 bg-gray-100 rounded text-xs">
+                                                {item.activityTypeId
+                                                    ? activityTypes.find((at) => at.id === item.activityTypeId)?.name ||
+                                                      '—'
+                                                    : 'Nenhum'}
+                                            </span>
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -342,6 +365,35 @@ export const CostCenters = () => {
                                         {categories.map((cat) => (
                                             <SelectItem key={cat.id} value={cat.id}>
                                                 {cat.code} - {cat.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="activityType">Tipo de atividade</Label>
+                                <Select
+                                    value={
+                                        formData.activityTypeId &&
+                                        activityTypes.some((at) => at.id === formData.activityTypeId)
+                                            ? formData.activityTypeId
+                                            : '__none__'
+                                    }
+                                    onValueChange={(value) =>
+                                        setFormData({
+                                            ...formData,
+                                            activityTypeId: value === '__none__' ? undefined : value,
+                                        })
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Nenhum" />
+                                    </SelectTrigger>
+                                        <SelectContent>
+                                        <SelectItem value="__none__">Nenhum</SelectItem>
+                                        {activityTypes.filter((at) => at.isActive).map((at) => (
+                                            <SelectItem key={at.id} value={at.id}>
+                                                {at.name}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -427,6 +479,35 @@ export const CostCenters = () => {
                                         {categories.map((cat) => (
                                             <SelectItem key={cat.id} value={cat.id}>
                                                 {cat.code} - {cat.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-activityType">Tipo de atividade</Label>
+                                <Select
+                                    value={
+                                        formData.activityTypeId &&
+                                        activityTypes.some((at) => at.id === formData.activityTypeId)
+                                            ? formData.activityTypeId
+                                            : '__none__'
+                                    }
+                                    onValueChange={(value) =>
+                                        setFormData({
+                                            ...formData,
+                                            activityTypeId: value === '__none__' ? undefined : value,
+                                        })
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Nenhum" />
+                                    </SelectTrigger>
+                                        <SelectContent>
+                                        <SelectItem value="__none__">Nenhum</SelectItem>
+                                        {activityTypes.filter((at) => at.isActive).map((at) => (
+                                            <SelectItem key={at.id} value={at.id}>
+                                                {at.name}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>

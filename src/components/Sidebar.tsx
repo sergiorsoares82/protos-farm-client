@@ -6,6 +6,7 @@ import {
   Users,
   Package,
   Settings,
+  Settings2,
   LogOut,
   Menu,
   X,
@@ -148,6 +149,12 @@ const financialMenuItems: NavItem[] = [
     path: '/activity-types',
     icon: Activity,
     roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
+  },
+  {
+    name: 'Operações',
+    path: '/operations',
+    icon: Settings2,
+    roles: 'all',
   },
 ];
 

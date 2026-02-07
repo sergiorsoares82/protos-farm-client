@@ -16,6 +16,7 @@ import { CostCenterCategories } from '@/pages/CostCenterCategories';
 import { Fields } from '@/pages/Fields';
 import { WorkLocationTypes } from '@/pages/WorkLocationTypes';
 import { ActivityTypes } from '@/pages/ActivityTypes';
+import { Operations } from '@/pages/Operations';
 import { UnitOfMeasures } from '@/pages/UnitOfMeasures';
 import { UnitOfMeasureConversions } from '@/pages/UnitOfMeasureConversions';
 import { Seasons } from '@/pages/Seasons';
@@ -186,6 +187,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ActivityTypes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/operations"
+            element={
+              <ProtectedRoute>
+                <Operations />
               </ProtectedRoute>
             }
           />

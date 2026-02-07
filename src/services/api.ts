@@ -660,6 +660,7 @@ export interface CostCenter {
   type: CostCenterType;
   categoryId?: string;
   assetId?: string;
+  activityTypeId?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -671,6 +672,7 @@ export interface CreateCostCenterRequest {
   type: CostCenterType;
   categoryId?: string;
   assetId?: string;
+  activityTypeId?: string;
 }
 
 export interface UpdateCostCenterRequest {
@@ -679,6 +681,7 @@ export interface UpdateCostCenterRequest {
   type?: CostCenterType;
   categoryId?: string;
   assetId?: string;
+  activityTypeId?: string;
   isActive?: boolean;
 }
 
@@ -990,6 +993,31 @@ export interface CreateActivityTypeRequest {
 
 export interface UpdateActivityTypeRequest {
   name?: string;
+  isActive?: boolean;
+}
+
+// Operations (Operações: code + hierarchy + activity types)
+export interface Operation {
+  id: string;
+  tenantId: string;
+  code: string;
+  description: string;
+  activityTypeIds: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateOperationRequest {
+  code: string;
+  description: string;
+  activityTypeIds?: string[];
+}
+
+export interface UpdateOperationRequest {
+  code?: string;
+  description?: string;
+  activityTypeIds?: string[];
   isActive?: boolean;
 }
 
@@ -1907,6 +1935,18 @@ class ApiService {
     return await this.handleResponse<CostCenter[]>(response);
   }
 
+  /** Centros de custo da categoria informada (ex: AGR = Agricultura). Usado no cadastro de safra. */
+  async getCostCentersByCategoryCode(categoryCode: string): Promise<CostCenter[]> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/cost-centers/by-category/${encodeURIComponent(categoryCode)}`,
+      {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+      },
+    );
+    return await this.handleResponse<CostCenter[]>(response);
+  }
+
   async getCostCenter(id: string): Promise<CostCenter> {
     const response = await this.fetchWithRetry(`${this.baseUrl}/api/cost-centers/${id}`, {
       method: 'GET',
@@ -2423,6 +2463,49 @@ class ApiService {
 
   async deleteActivityType(id: string): Promise<void> {
     const response = await this.fetchWithRetry(`${this.baseUrl}/api/activity-types/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    await this.handleResponse<void>(response);
+  }
+
+  // Operations (Operações)
+  async getOperations(): Promise<Operation[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/operations`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<Operation[]>(response);
+  }
+
+  async getOperation(id: string): Promise<Operation> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/operations/${id}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<Operation>(response);
+  }
+
+  async createOperation(data: CreateOperationRequest): Promise<Operation> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/operations`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<Operation>(response);
+  }
+
+  async updateOperation(id: string, data: UpdateOperationRequest): Promise<Operation> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/operations/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<Operation>(response);
+  }
+
+  async deleteOperation(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/operations/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });

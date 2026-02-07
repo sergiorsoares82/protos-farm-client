@@ -35,7 +35,7 @@ export const Seasons = () => {
   const [selectedItem, setSelectedItem] = useState<Season | null>(null);
 
   const [allTalhoes, setAllTalhoes] = useState<WorkLocation[]>([]);
-  const [lavouraCostCenters, setLavouraCostCenters] = useState<CostCenter[]>([]);
+  const [agriculturaCostCenters, setAgriculturaCostCenters] = useState<CostCenter[]>([]);
   const [showFieldsDialog, setShowFieldsDialog] = useState(false);
   const [fieldsDialogSeason, setFieldsDialogSeason] = useState<Season | null>(null);
   const [fieldsDialogLinks, setFieldsDialogLinks] = useState<SeasonFieldLink[]>([]);
@@ -64,20 +64,12 @@ export const Seasons = () => {
     const init = async () => {
       await loadItems();
       try {
-        const [workLocations, costCenters, categories] = await Promise.all([
+        const [workLocations, agriculturaCostCentersList] = await Promise.all([
           apiService.getWorkLocations(),
-          apiService.getCostCenters(),
-          apiService.getCostCenterCategories(),
+          apiService.getCostCentersByCategoryCode('AGR'),
         ]);
         setAllTalhoes(workLocations.filter((w) => w.isTalhao && w.isActive));
-        const lavouraCategoryIds = categories
-          .filter((c) => c.isActive && c.code === 'LAV')
-          .map((c) => c.id);
-        setLavouraCostCenters(
-          costCenters.filter(
-            (cc) => cc.isActive && cc.categoryId && lavouraCategoryIds.includes(cc.categoryId),
-          ),
-        );
+        setAgriculturaCostCenters(agriculturaCostCentersList);
       } catch (err) {
         console.error('Failed to load work locations or cost centers for seasons page', err);
       }
@@ -206,7 +198,7 @@ export const Seasons = () => {
     setFieldsDialogLinks((prev) => {
       if (checked) {
         if (prev.some((l) => l.fieldId === field.id)) return prev;
-        const defaultCc = lavouraCostCenters[0];
+        const defaultCc = agriculturaCostCenters[0];
         return [
           ...prev,
           {
@@ -491,7 +483,7 @@ export const Seasons = () => {
                           <th className="px-3 py-2 text-left">Usar</th>
                           <th className="px-3 py-2 text-left">Talhão</th>
                           <th className="px-3 py-2 text-left">Área (ha)</th>
-                          <th className="px-3 py-2 text-left">Centro de custo (Lavoura)</th>
+                          <th className="px-3 py-2 text-left">Centro de custo (Agricultura)</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -534,7 +526,7 @@ export const Seasons = () => {
                               <td className="px-3 py-2">
                                 <select
                                   className="border rounded px-2 py-1 text-sm w-full disabled:bg-muted"
-                                  disabled={!selected || lavouraCostCenters.length === 0}
+                                  disabled={!selected || agriculturaCostCenters.length === 0}
                                   value={link?.costCenterId ?? ''}
                                   onChange={(e) =>
                                     setFieldsDialogLinks((prev) =>
@@ -547,7 +539,7 @@ export const Seasons = () => {
                                   }
                                 >
                                   <option value="">Select...</option>
-                                  {lavouraCostCenters.map((cc) => (
+                                  {agriculturaCostCenters.map((cc) => (
                                     <option key={cc.id} value={cc.id}>
                                       {cc.code} - {cc.description}
                                     </option>
@@ -590,7 +582,7 @@ export const Seasons = () => {
                       )
                     ) {
                       setError(
-                        'Please select a cost center (Lavoura) for each selected field in this season.',
+                        'Please select a cost center (Agricultura) for each selected field in this season.',
                       );
                       return;
                     }
