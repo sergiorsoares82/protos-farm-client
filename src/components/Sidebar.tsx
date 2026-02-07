@@ -122,6 +122,7 @@ const navItems: NavItem[] = [
   { name: 'Patrimônio (Ativos)', path: '/assets', icon: Box, roles: 'all' },
   { name: 'Organization', path: '/organization', icon: Building2, roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN] },
   { name: 'Super Admin', path: '/super-admin', icon: Shield, roles: [UserRole.SUPER_ADMIN] },
+  { name: 'Roles', path: '/roles', icon: Shield, roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN] },
   { name: 'Permissions', path: '/permissions', icon: Shield, roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN] },
   { name: 'Settings', path: '/settings', icon: Settings, roles: 'all' },
 ];

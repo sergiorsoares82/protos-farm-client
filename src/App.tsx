@@ -35,6 +35,7 @@ import { RuralProperties } from '@/pages/RuralProperties';
 import { LandRegistries } from '@/pages/LandRegistries';
 import { ProdutoresRurais } from '@/pages/ProdutoresRurais';
 import { PermissionManagement } from '@/pages/PermissionManagement';
+import { RoleManagement } from '@/pages/RoleManagement';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
@@ -321,6 +322,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <PermissionManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/roles"
+            element={
+              <ProtectedRoute>
+                <RoleManagement />
               </ProtectedRoute>
             }
           />
