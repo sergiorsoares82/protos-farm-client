@@ -13,7 +13,7 @@ class PermissionService {
         headers: (apiService as any).getAuthHeaders(),
       }
     );
-    const data = await (apiService as any).handleResponse<{ success: boolean; data: Permission[] }>(response);
+    const data = (await (apiService as any).handleResponse(response)) as { success: boolean; data: Permission[] };
     return data.data;
   }
 
@@ -31,7 +31,7 @@ class PermissionService {
         headers: (apiService as any).getAuthHeaders(),
       }
     );
-    const data = await (apiService as any).handleResponse<{ success: boolean; data: RolePermissionsResponse }>(response);
+    const data = (await (apiService as any).handleResponse(response)) as { success: boolean; data: RolePermissionsResponse };
     return data.data;
   }
 
@@ -55,7 +55,7 @@ class PermissionService {
         body: JSON.stringify(body),
       }
     );
-    await (apiService as any).handleResponse<{ success: boolean }>(response);
+    await (apiService as any).handleResponse(response) as { success: boolean };
   }
 
   /**
@@ -69,7 +69,7 @@ class PermissionService {
         headers: (apiService as any).getAuthHeaders(),
       }
     );
-    const data = await (apiService as any).handleResponse<{ success: boolean; data: CheckPermissionResponse }>(response);
+    const data = (await (apiService as any).handleResponse(response)) as { success: boolean; data: CheckPermissionResponse };
     return data.data;
   }
 }
