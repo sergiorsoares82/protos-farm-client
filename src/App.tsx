@@ -34,6 +34,7 @@ import { Fazendas } from '@/pages/Fazendas';
 import { RuralProperties } from '@/pages/RuralProperties';
 import { LandRegistries } from '@/pages/LandRegistries';
 import { ProdutoresRurais } from '@/pages/ProdutoresRurais';
+import { PermissionManagement } from '@/pages/PermissionManagement';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
@@ -312,6 +313,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <SuperAdmin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/permissions"
+            element={
+              <ProtectedRoute>
+                <PermissionManagement />
               </ProtectedRoute>
             }
           />

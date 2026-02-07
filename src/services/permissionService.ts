@@ -19,10 +19,13 @@ class PermissionService {
 
   /**
    * Get permissions for a specific role
+   * @param role - User role
+   * @param tenantId - Optional tenant ID (SUPER_ADMIN only)
    */
-  async getRolePermissions(role: string): Promise<RolePermissionsResponse> {
+  async getRolePermissions(role: string, tenantId?: string): Promise<RolePermissionsResponse> {
+    const params = tenantId ? `?tenantId=${tenantId}` : '';
     const response = await apiService['fetchWithRetry'](
-      `${(apiService as any).baseUrl}/api/permissions/roles/${role}`,
+      `${(apiService as any).baseUrl}/api/permissions/roles/${role}${params}`,
       {
         method: 'GET',
         headers: (apiService as any).getAuthHeaders(),
@@ -34,14 +37,22 @@ class PermissionService {
 
   /**
    * Update permissions for a specific role
+   * @param role - User role
+   * @param permissionIds - Array of permission IDs
+   * @param tenantId - Optional tenant ID (SUPER_ADMIN only)
    */
-  async updateRolePermissions(role: string, permissionIds: string[]): Promise<void> {
+  async updateRolePermissions(role: string, permissionIds: string[], tenantId?: string): Promise<void> {
+    const body: any = { permissionIds };
+    if (tenantId) {
+      body.tenantId = tenantId;
+    }
+    
     const response = await apiService['fetchWithRetry'](
       `${(apiService as any).baseUrl}/api/permissions/roles/${role}`,
       {
         method: 'PUT',
         headers: (apiService as any).getAuthHeaders(),
-        body: JSON.stringify({ permissionIds }),
+        body: JSON.stringify(body),
       }
     );
     await (apiService as any).handleResponse<{ success: boolean }>(response);
