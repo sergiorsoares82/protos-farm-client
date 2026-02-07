@@ -971,6 +971,28 @@ export interface UpdateMachineTypeRequest {
   isActive?: boolean;
 }
 
+// Activity Types (Tipo de Atividade)
+export interface ActivityType {
+  id: string;
+  tenantId: string | null;
+  name: string;
+  isActive: boolean;
+  isSystem?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateActivityTypeRequest {
+  name: string;
+  /** Only super-admin can set null (creates system type for all organizations). */
+  tenantId?: string | null;
+}
+
+export interface UpdateActivityTypeRequest {
+  name?: string;
+  isActive?: boolean;
+}
+
 // Machines (cadastro de máquinas)
 export interface MachineItem {
   id: string;
@@ -2358,6 +2380,49 @@ class ApiService {
 
   async deleteMachineType(id: string): Promise<void> {
     const response = await this.fetchWithRetry(`${this.baseUrl}/api/machine-types/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    await this.handleResponse<void>(response);
+  }
+
+  // Activity Types (Tipo de Atividade)
+  async getActivityTypes(): Promise<ActivityType[]> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/activity-types`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<ActivityType[]>(response);
+  }
+
+  async getActivityType(id: string): Promise<ActivityType> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/activity-types/${id}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+    return await this.handleResponse<ActivityType>(response);
+  }
+
+  async createActivityType(data: CreateActivityTypeRequest): Promise<ActivityType> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/activity-types`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<ActivityType>(response);
+  }
+
+  async updateActivityType(id: string, data: UpdateActivityTypeRequest): Promise<ActivityType> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/activity-types/${id}`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<ActivityType>(response);
+  }
+
+  async deleteActivityType(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/activity-types/${id}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });

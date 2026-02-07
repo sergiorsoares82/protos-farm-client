@@ -28,6 +28,7 @@ import {
   Ruler,
   Repeat,
   Sprout,
+  Activity,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -101,6 +102,13 @@ const agricultureMenuItems: NavItem[] = [
   { name: 'Seasons (Safras)', path: '/seasons', icon: CalendarRange, roles: 'all' },
 ];
 
+// Menu "Estoque"
+const stockMenuItems: NavItem[] = [
+  { name: 'Movimentos de Estoque', path: '/stock-movements', icon: ArrowLeftRight, roles: 'all' },
+  { name: 'Recebimento de Produtos', path: '/product-receipts', icon: Package, roles: 'all' },
+  { name: 'Saída de Produtos', path: '/product-shipments', icon: Truck, roles: 'all' },
+];
+
 // Menu "Financeiro" (Receitas e Despesas)
 const financeMenuItems: NavItem[] = [
   { name: 'Receitas', path: '/revenues', icon: FileText, roles: 'all' },
@@ -109,9 +117,6 @@ const financeMenuItems: NavItem[] = [
 
 const navItems: NavItem[] = [
   { name: 'Dashboard', path: '/dashboard', icon: Home, roles: 'all' },
-  { name: 'Movimentos de Estoque', path: '/stock-movements', icon: ArrowLeftRight, roles: 'all' },
-  { name: 'Recebimento de Produtos', path: '/product-receipts', icon: Package, roles: 'all' },
-  { name: 'Saída de Produtos', path: '/product-shipments', icon: Truck, roles: 'all' },
   { name: 'Machine Types', path: '/machine-types', icon: Truck, roles: 'all' },
   { name: 'Machines (Máquinas)', path: '/machines', icon: Truck, roles: 'all' },
   { name: 'Patrimônio (Ativos)', path: '/assets', icon: Box, roles: 'all' },
@@ -136,6 +141,12 @@ const financialMenuItems: NavItem[] = [
     icon: Banknote,
     roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
   },
+  {
+    name: 'Tipos de Atividade',
+    path: '/activity-types',
+    icon: Activity,
+    roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
+  },
 ];
 
 export const Sidebar = () => {
@@ -145,7 +156,7 @@ export const Sidebar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSuperAdminOpen, setIsSuperAdminOpen] = useState(false);
   // Um único estado: qual seção está aberta. Ao clicar num link dentro da seção, não alteramos; só fechamos ao abrir outra.
-  type SectionKey = 'farm' | 'people' | 'products' | 'agriculture' | 'finance' | 'financial';
+  type SectionKey = 'farm' | 'people' | 'products' | 'stock' | 'agriculture' | 'finance' | 'financial';
   const [expandedSection, setExpandedSection] = useState<SectionKey | null>(null);
 
   // Manter a seção aberta quando a rota pertence a ela (ex.: navegar entre Persons e Funcionários)
@@ -153,6 +164,7 @@ export const Sidebar = () => {
     if (farmMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('farm');
     else if (peopleMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('people');
     else if (productsMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('products');
+    else if (stockMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('stock');
     else if (agricultureMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('agriculture');
     else if (financeMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('finance');
     else if (financialMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('financial');
@@ -176,6 +188,7 @@ export const Sidebar = () => {
   const farmPaths = farmMenuItems.map((i) => i.path);
   const peoplePaths = peopleMenuItems.map((i) => i.path);
   const productsPaths = productsMenuItems.map((i) => i.path);
+  const stockPaths = stockMenuItems.map((i) => i.path);
   const agriculturePaths = agricultureMenuItems.map((i) => i.path);
   const financePaths = financeMenuItems.map((i) => i.path);
   const financialPaths = financialMenuItems.map((i) => i.path);
@@ -183,6 +196,7 @@ export const Sidebar = () => {
     if (farmPaths.includes(item.path)) return false;
     if (peoplePaths.includes(item.path)) return false;
     if (productsPaths.includes(item.path)) return false;
+    if (stockPaths.includes(item.path)) return false;
     if (agriculturePaths.includes(item.path)) return false;
     if (financePaths.includes(item.path)) return false;
     if (financialPaths.includes(item.path)) return false;
@@ -218,6 +232,14 @@ export const Sidebar = () => {
     return item.roles.includes(user.role);
   });
   const isProductsSectionActive = productsPaths.some((path) => location.pathname === path);
+
+  const visibleStockItems = stockMenuItems.filter((item) => {
+    if (item.roles === 'all') return true;
+    if (!item.roles) return true;
+    if (!user?.role) return false;
+    return item.roles.includes(user.role);
+  });
+  const isStockSectionActive = stockPaths.some((path) => location.pathname === path);
 
   const visibleAgricultureItems = agricultureMenuItems.filter((item) => {
     if (item.roles === 'all') return true;
@@ -439,6 +461,55 @@ export const Sidebar = () => {
                       {expandedSection === 'products' && (
                         <div className="mt-1 space-y-1 pl-8">
                           {visibleProductsItems.map((subItem) => {
+                            const SubIcon = subItem.icon;
+                            const isSubActive = location.pathname === subItem.path;
+                            return (
+                              <Link
+                                key={subItem.path}
+                                to={subItem.path}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={cn(
+                                  'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors',
+                                  isSubActive
+                                    ? 'bg-primary/90 text-primary-foreground'
+                                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                )}
+                              >
+                                <SubIcon className="h-4 w-4" />
+                                {subItem.name}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Menu Estoque: Movimentos de Estoque, Recebimento de Produtos, Saída de Produtos */}
+                  {item.path === '/dashboard' && visibleStockItems.length > 0 && (
+                    <div className="mt-1 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedSection((s) => (s === 'stock' ? null : 'stock'))}
+                        className={cn(
+                          'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                          isStockSectionActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        )}
+                      >
+                        <span className="flex items-center gap-3">
+                          <Box className="h-5 w-5" />
+                          <span>Estoque</span>
+                        </span>
+                        {expandedSection === 'stock' ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                      {expandedSection === 'stock' && (
+                        <div className="mt-1 space-y-1 pl-8">
+                          {visibleStockItems.map((subItem) => {
                             const SubIcon = subItem.icon;
                             const isSubActive = location.pathname === subItem.path;
                             return (

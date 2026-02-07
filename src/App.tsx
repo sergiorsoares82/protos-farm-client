@@ -15,6 +15,7 @@ import { BankAccounts } from '@/pages/BankAccounts';
 import { CostCenterCategories } from '@/pages/CostCenterCategories';
 import { Fields } from '@/pages/Fields';
 import { WorkLocationTypes } from '@/pages/WorkLocationTypes';
+import { ActivityTypes } from '@/pages/ActivityTypes';
 import { UnitOfMeasures } from '@/pages/UnitOfMeasures';
 import { UnitOfMeasureConversions } from '@/pages/UnitOfMeasureConversions';
 import { Seasons } from '@/pages/Seasons';
@@ -175,6 +176,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <WorkLocationTypes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/activity-types"
+            element={
+              <ProtectedRoute>
+                <ActivityTypes />
               </ProtectedRoute>
             }
           />
