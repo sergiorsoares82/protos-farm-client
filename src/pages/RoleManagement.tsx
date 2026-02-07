@@ -4,14 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Textarea } from '../components/ui/textarea';
+import { Badge } from '../components/ui/badge';
+import { Alert, AlertDescription } from '../components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { roleService } from '@/services/roleService';
 import type { Role, CreateRoleRequest, UpdateRoleRequest } from '@/types/role';
 import { UserRole } from '@/services/api';
-import { Shield, Plus, Edit2, Trash2, Users, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { Shield, Plus, Edit2, Trash2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const RoleManagement = () => {

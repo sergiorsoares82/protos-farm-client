@@ -4,15 +4,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '../components/ui/badge';
 import { permissionService } from '@/services/permissionService';
 import { Permission, EntityType, PermissionAction, ENTITY_CATEGORIES } from '@/types/permission';
 import { UserRole, Organization, apiService } from '@/services/api';
 import { Shield, Search, Save, AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription } from '../components/ui/alert';
 
 interface PermissionMatrix {
   [entityType: string]: {

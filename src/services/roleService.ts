@@ -13,7 +13,7 @@ class RoleService {
         headers: (apiService as any).getAuthHeaders(),
       }
     );
-    const data = await (apiService as any).handleResponse<{ success: boolean; data: Role[] }>(response);
+    const data = (await (apiService as any).handleResponse(response)) as { success: boolean; data: Role[] };
     return data.data;
   }
 
@@ -29,7 +29,7 @@ class RoleService {
         body: JSON.stringify(request),
       }
     );
-    const data = await (apiService as any).handleResponse<{ success: boolean; data: Role }>(response);
+    const data = (await (apiService as any).handleResponse(response)) as { success: boolean; data: Role };
     return data.data;
   }
 
@@ -45,7 +45,7 @@ class RoleService {
         body: JSON.stringify(request),
       }
     );
-    const data = await (apiService as any).handleResponse<{ success: boolean; data: Role }>(response);
+    const data = (await (apiService as any).handleResponse(response)) as { success: boolean; data: Role };
     return data.data;
   }
 
@@ -60,7 +60,7 @@ class RoleService {
         headers: (apiService as any).getAuthHeaders(),
       }
     );
-    await (apiService as any).handleResponse<{ success: boolean }>(response);
+    await (apiService as any).handleResponse(response) as { success: boolean };
   }
 
   /**
@@ -74,7 +74,7 @@ class RoleService {
         headers: (apiService as any).getAuthHeaders(),
       }
     );
-    const data = await (apiService as any).handleResponse<{ success: boolean; data: RoleStats }>(response);
+    const data = (await (apiService as any).handleResponse(response)) as { success: boolean; data: RoleStats };
     return data.data;
   }
 }
