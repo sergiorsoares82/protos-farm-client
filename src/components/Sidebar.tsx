@@ -158,6 +158,12 @@ const financialMenuItems: NavItem[] = [
   },
 ];
 
+// Menu "Operações" (Operations)
+const operationsMenuItems: NavItem[] = [
+  { name: 'Operações', path: '/operations', icon: Settings2, roles: 'all' },
+  { name: 'Apontamentos', path: '/operation-records', icon: Activity, roles: 'all' },
+];
+
 export const Sidebar = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -165,7 +171,7 @@ export const Sidebar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSuperAdminOpen, setIsSuperAdminOpen] = useState(false);
   // Um único estado: qual seção está aberta. Ao clicar num link dentro da seção, não alteramos; só fechamos ao abrir outra.
-  type SectionKey = 'farm' | 'people' | 'products' | 'stock' | 'agriculture' | 'finance' | 'financial';
+  type SectionKey = 'farm' | 'people' | 'products' | 'stock' | 'agriculture' | 'finance' | 'financial' | 'operations';
   const [expandedSection, setExpandedSection] = useState<SectionKey | null>(null);
 
   // Manter a seção aberta quando a rota pertence a ela (ex.: navegar entre Persons e Funcionários)
@@ -177,6 +183,7 @@ export const Sidebar = () => {
     else if (agricultureMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('agriculture');
     else if (financeMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('finance');
     else if (financialMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('financial');
+    else if (operationsMenuItems.some((i) => location.pathname === i.path)) setExpandedSection('operations');
   }, [location.pathname]);
 
   const handleLogout = () => {
@@ -201,6 +208,7 @@ export const Sidebar = () => {
   const agriculturePaths = agricultureMenuItems.map((i) => i.path);
   const financePaths = financeMenuItems.map((i) => i.path);
   const financialPaths = financialMenuItems.map((i) => i.path);
+  const operationsPaths = operationsMenuItems.map((i) => i.path);
   const mainNavItems = visibleNavItems.filter((item) => {
     if (farmPaths.includes(item.path)) return false;
     if (peoplePaths.includes(item.path)) return false;
@@ -209,6 +217,7 @@ export const Sidebar = () => {
     if (agriculturePaths.includes(item.path)) return false;
     if (financePaths.includes(item.path)) return false;
     if (financialPaths.includes(item.path)) return false;
+    if (operationsPaths.includes(item.path)) return false;
     if (
       user?.role === UserRole.SUPER_ADMIN &&
       (item.path === '/organization' || item.path === '/super-admin')
@@ -273,6 +282,14 @@ export const Sidebar = () => {
     return item.roles.includes(user.role);
   });
   const isFinancialSectionActive = financialPaths.some((path) => location.pathname === path);
+
+  const visibleOperationsItems = operationsMenuItems.filter((item) => {
+    if (item.roles === 'all') return true;
+    if (!item.roles) return true;
+    if (!user?.role) return false;
+    return item.roles.includes(user.role);
+  });
+  const isOperationsSectionActive = operationsPaths.some((path) => location.pathname === path);
 
   const isSuperAdminSectionActive = location.pathname === '/super-admin';
 
@@ -676,6 +693,54 @@ export const Sidebar = () => {
                                 className={cn(
                                   'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors',
                                   isSubActive
+                                    ? 'bg-primary/90 text-primary-foreground'
+                                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                )}
+                              >
+                                <SubIcon className="h-4 w-4" />
+                                {subItem.name}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Menu Operações */}
+                  {item.path === '/dashboard' && visibleOperationsItems.length > 0 && (
+                    <div className="mt-1 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedSection((s) => (s === 'operations' ? null : 'operations'))}
+                        className={cn(
+                          'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                          expandedSection === 'operations'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        )}
+                      >
+                        <span className="flex items-center gap-3">
+                          <Settings2 className="h-5 w-5" />
+                          <span>Operações</span>
+                        </span>
+                        {expandedSection === 'operations' ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                      {expandedSection === 'operations' && (
+                        <div className="mt-1 space-y-1 pl-8">
+                          {visibleOperationsItems.map((subItem) => {
+                            const SubIcon = subItem.icon;
+                            return (
+                              <Link
+                                key={subItem.path}
+                                to={subItem.path}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={cn(
+                                  'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors',
+                                  location.pathname === subItem.path
                                     ? 'bg-primary/90 text-primary-foreground'
                                     : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                                 )}

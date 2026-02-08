@@ -1021,6 +1021,81 @@ export interface UpdateOperationRequest {
   isActive?: boolean;
 }
 
+// Operation Records (Apontamentos de Operações)
+export interface OperationRecordWorker {
+  id: string;
+  workerId: string;
+  startTime: string; // HH:MM format
+  endTime: string; // HH:MM format
+}
+
+export interface OperationRecordProduct {
+  id: string;
+  productId: string;
+  quantity: number;
+  unitOfMeasureId: string;
+}
+
+export interface OperationRecord {
+  id: string;
+  tenantId: string;
+  serviceDate: string; // ISO date string
+  operationId: string;
+  machineId: string;
+  horimeterStart: number;
+  horimeterEnd: number;
+  implementId?: string | null;
+  fieldId: string;
+  costCenterId: string;
+  notes?: string | null;
+  workers: OperationRecordWorker[];
+  products: OperationRecordProduct[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OperationRecordWorkerDTO {
+  workerId: string;
+  startTime: string; // HH:MM format
+  endTime: string; // HH:MM format
+}
+
+export interface OperationRecordProductDTO {
+  productId: string;
+  quantity: number;
+  unitOfMeasureId: string;
+}
+
+export interface CreateOperationRecordRequest {
+  serviceDate: string; // ISO date string (YYYY-MM-DD)
+  operationId: string;
+  machineId: string;
+  horimeterStart: number;
+  horimeterEnd: number;
+  implementId?: string;
+  fieldId: string;
+  costCenterId: string;
+  notes?: string;
+  workers: OperationRecordWorkerDTO[];
+  products: OperationRecordProductDTO[];
+}
+
+export interface UpdateOperationRecordRequest {
+  serviceDate?: string; // ISO date string (YYYY-MM-DD)
+  operationId?: string;
+  machineId?: string;
+  horimeterStart?: number;
+  horimeterEnd?: number;
+  implementId?: string | null;
+  fieldId?: string;
+  costCenterId?: string;
+  notes?: string | null;
+  workers?: OperationRecordWorkerDTO[];
+  products?: OperationRecordProductDTO[];
+  isActive?: boolean;
+}
+
 // Machines (cadastro de máquinas)
 export interface MachineItem {
   id: string;

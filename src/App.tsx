@@ -17,6 +17,7 @@ import { Fields } from '@/pages/Fields';
 import { WorkLocationTypes } from '@/pages/WorkLocationTypes';
 import { ActivityTypes } from '@/pages/ActivityTypes';
 import { Operations } from '@/pages/Operations';
+import { OperationRecords } from '@/pages/OperationRecords';
 import { UnitOfMeasures } from '@/pages/UnitOfMeasures';
 import { UnitOfMeasureConversions } from '@/pages/UnitOfMeasureConversions';
 import { Seasons } from '@/pages/Seasons';
@@ -195,6 +196,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Operations />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/operation-records"
+            element={
+              <ProtectedRoute>
+                <OperationRecords />
               </ProtectedRoute>
             }
           />
