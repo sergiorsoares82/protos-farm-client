@@ -110,13 +110,13 @@ export const OperationRecords = () => {
   };
 
   const loadReferenceData = async () => {
-    const [ops, machs, assets, flds, ccs, wrks, prods, units] = await Promise.all([
+    const [ops, machs, assets, workLocs, ccs, persons, prods, units] = await Promise.all([
       apiService.getOperations(),
       apiService.getMachines(),
       apiService.getAssets(),
-      apiService.getFields() as Promise<Field[]>,
+      apiService.getWorkLocations(),
       apiService.getCostCenters(),
-      apiService.getWorkers() as Promise<Worker[]>,
+      apiService.getPersons(),
       apiService.getItems('PRODUCT'),
       apiService.getUnitOfMeasures(),
     ]);
@@ -124,9 +124,32 @@ export const OperationRecords = () => {
     setOperations(ops.filter(o => o.isActive));
     setMachines(machs.filter(m => m.isActive));
     setAvailableImplements(assets.filter(a => a.assetKind === 'IMPLEMENT' && a.isActive));
-    setFields(flds.filter(f => f.isActive));
+    
+    // Filter work locations to get only active fields
+    const activeWorkLocations = workLocs.filter(w => w.isActive);
+    setFields(activeWorkLocations.map(w => ({
+      id: w.id,
+      code: w.code,
+      name: w.name,
+      isActive: w.isActive,
+    })));
+    
     setCostCenters(ccs.filter(cc => cc.isActive));
-    setWorkers(wrks);
+    
+    // Filter persons to get only those with worker role
+    const workersFromPersons = persons
+      .filter(p => p.roles && p.roles.WORKER)
+      .map(p => {
+        const workerData = p.roles.WORKER;
+        return {
+          id: workerData.id || p.id,
+          personId: p.id,
+          position: workerData.position || '',
+          person: { name: p.nome },
+        };
+      });
+    setWorkers(workersFromPersons);
+    
     setProducts(prods.filter(p => p.isActive));
     setUnitOfMeasures(units.filter(u => u.isActive));
   };
@@ -555,12 +578,12 @@ export const OperationRecords = () => {
                   </div>
                   <div>
                     <Label htmlFor="implementId">Implemento</Label>
-                    <Select value={formData.implementId} onValueChange={(value) => setFormData({ ...formData, implementId: value })}>
+                    <Select value={formData.implementId || 'none'} onValueChange={(value) => setFormData({ ...formData, implementId: value === 'none' ? '' : value })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione um implemento (opcional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Nenhum</SelectItem>
+                        <SelectItem value="none">Nenhum</SelectItem>
                         {availableImplements.map(i => (
                           <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
                         ))}
@@ -574,8 +597,8 @@ export const OperationRecords = () => {
                     <Label htmlFor="horimeterStart">Horímetro Inicial *</Label>
                     <DecimalInput
                       id="horimeterStart"
-                      value={formData.horimeterStart.toString()}
-                      onChange={(value) => setFormData({ ...formData, horimeterStart: parseFloat(value) || 0 })}
+                      value={formData.horimeterStart}
+                      onChange={(value) => setFormData({ ...formData, horimeterStart: value })}
                       placeholder="0.00"
                     />
                   </div>
@@ -583,8 +606,8 @@ export const OperationRecords = () => {
                     <Label htmlFor="horimeterEnd">Horímetro Final *</Label>
                     <DecimalInput
                       id="horimeterEnd"
-                      value={formData.horimeterEnd.toString()}
-                      onChange={(value) => setFormData({ ...formData, horimeterEnd: parseFloat(value) || 0 })}
+                      value={formData.horimeterEnd}
+                      onChange={(value) => setFormData({ ...formData, horimeterEnd: value })}
                       placeholder="0.00"
                     />
                   </div>
@@ -718,8 +741,8 @@ export const OperationRecords = () => {
                       <div className="w-40">
                         <Label>Quantidade</Label>
                         <DecimalInput
-                          value={product.quantity.toString()}
-                          onChange={(value) => updateProduct(index, 'quantity', parseFloat(value) || 0)}
+                          value={product.quantity}
+                          onChange={(value) => updateProduct(index, 'quantity', value)}
                           placeholder="0.00"
                         />
                       </div>
@@ -822,12 +845,12 @@ export const OperationRecords = () => {
                   </div>
                   <div>
                     <Label htmlFor="edit-implementId">Implemento</Label>
-                    <Select value={formData.implementId} onValueChange={(value) => setFormData({ ...formData, implementId: value })}>
+                    <Select value={formData.implementId || 'none'} onValueChange={(value) => setFormData({ ...formData, implementId: value === 'none' ? '' : value })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione um implemento (opcional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Nenhum</SelectItem>
+                        <SelectItem value="none">Nenhum</SelectItem>
                         {availableImplements.map(i => (
                           <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
                         ))}
@@ -841,8 +864,8 @@ export const OperationRecords = () => {
                     <Label htmlFor="edit-horimeterStart">Horímetro Inicial *</Label>
                     <DecimalInput
                       id="edit-horimeterStart"
-                      value={formData.horimeterStart.toString()}
-                      onChange={(value) => setFormData({ ...formData, horimeterStart: parseFloat(value) || 0 })}
+                      value={formData.horimeterStart}
+                      onChange={(value) => setFormData({ ...formData, horimeterStart: value })}
                       placeholder="0.00"
                     />
                   </div>
@@ -850,8 +873,8 @@ export const OperationRecords = () => {
                     <Label htmlFor="edit-horimeterEnd">Horímetro Final *</Label>
                     <DecimalInput
                       id="edit-horimeterEnd"
-                      value={formData.horimeterEnd.toString()}
-                      onChange={(value) => setFormData({ ...formData, horimeterEnd: parseFloat(value) || 0 })}
+                      value={formData.horimeterEnd}
+                      onChange={(value) => setFormData({ ...formData, horimeterEnd: value })}
                       placeholder="0.00"
                     />
                   </div>
@@ -985,8 +1008,8 @@ export const OperationRecords = () => {
                       <div className="w-40">
                         <Label>Quantidade</Label>
                         <DecimalInput
-                          value={product.quantity.toString()}
-                          onChange={(value) => updateProduct(index, 'quantity', parseFloat(value) || 0)}
+                          value={product.quantity}
+                          onChange={(value) => updateProduct(index, 'quantity', value)}
                           placeholder="0.00"
                         />
                       </div>

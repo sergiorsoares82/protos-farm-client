@@ -150,12 +150,6 @@ const financialMenuItems: NavItem[] = [
     icon: Activity,
     roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
   },
-  {
-    name: 'Operações',
-    path: '/operations',
-    icon: Settings2,
-    roles: 'all',
-  },
 ];
 
 // Menu "Operações" (Operations)
