@@ -652,12 +652,24 @@ export enum CostCenterType {
   SHARED = 'SHARED',
 }
 
+export enum CostCenterKind {
+  MACHINE = 'MACHINE',
+  BUILDING = 'BUILDING',
+  GENERAL = 'GENERAL',
+}
+
 export interface CostCenter {
   id: string;
   tenantId: string;
   code: string;
+  name?: string;
   description: string;
+  kind: CostCenterKind;
   type: CostCenterType;
+  hasTechnicalData: boolean;
+  acquisitionDate?: string;
+  acquisitionValue?: number;
+  currentValue?: number;
   categoryId?: string;
   assetId?: string;
   activityTypeId?: string;
@@ -668,21 +680,75 @@ export interface CostCenter {
 
 export interface CreateCostCenterRequest {
   code: string;
+  name?: string;
   description: string;
+  kind?: CostCenterKind;
   type: CostCenterType;
   categoryId?: string;
   assetId?: string;
   activityTypeId?: string;
+  acquisitionDate?: string;
+  acquisitionValue?: number;
+  currentValue?: number;
 }
 
 export interface UpdateCostCenterRequest {
   code?: string;
+  name?: string;
   description?: string;
+  kind?: CostCenterKind;
   type?: CostCenterType;
   categoryId?: string;
   assetId?: string;
   activityTypeId?: string;
+  acquisitionDate?: string;
+  acquisitionValue?: number;
+  currentValue?: number;
   isActive?: boolean;
+}
+
+export interface CreateMachineWithCostCenterRequest {
+  code: string;
+  name: string;
+  description: string;
+  type: CostCenterType;
+  categoryId?: string;
+  acquisitionDate?: string;
+  acquisitionValue?: number;
+  machineTypeId: string;
+  brand?: string;
+  model?: string;
+  serialNumber?: string;
+  horimeterInitial?: number;
+  powerHp?: number;
+  fuelType?: string;
+}
+
+export interface CreateBuildingWithCostCenterRequest {
+  code: string;
+  name: string;
+  description: string;
+  type: string;
+  categoryId?: string;
+  acquisitionDate?: string;
+  acquisitionValue?: number;
+  areaM2?: number;
+  landRegistry?: string;
+  locationDetails?: string;
+  constructionDate?: string;
+}
+
+export interface Building {
+  id: string;
+  tenantId: string;
+  costCenterId: string;
+  areaM2?: number;
+  landRegistry?: string;
+  locationDetails?: string;
+  constructionDate?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Cost Center Categories
@@ -1040,6 +1106,7 @@ export interface OperationRecord {
   id: string;
   tenantId: string;
   serviceDate: string; // ISO date string
+  seasonId?: string | null;
   operationId: string;
   machineId: string;
   horimeterStart: number;
@@ -1069,6 +1136,7 @@ export interface OperationRecordProductDTO {
 
 export interface CreateOperationRecordRequest {
   serviceDate: string; // ISO date string (YYYY-MM-DD)
+  seasonId?: string;
   operationId: string;
   machineId: string;
   horimeterStart: number;
@@ -1083,6 +1151,7 @@ export interface CreateOperationRecordRequest {
 
 export interface UpdateOperationRecordRequest {
   serviceDate?: string; // ISO date string (YYYY-MM-DD)
+  seasonId?: string;
   operationId?: string;
   machineId?: string;
   horimeterStart?: number;
@@ -2056,6 +2125,28 @@ class ApiService {
     await this.handleResponse<void>(response);
   }
 
+  async createMachineWithCostCenter(
+    data: CreateMachineWithCostCenterRequest
+  ): Promise<{ costCenter: CostCenter; machine: Machine }> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/cost-centers/machines`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<{ costCenter: CostCenter; machine: Machine }>(response);
+  }
+
+  async createBuildingWithCostCenter(
+    data: CreateBuildingWithCostCenterRequest
+  ): Promise<{ costCenter: CostCenter; building: Building }> {
+    const response = await this.fetchWithRetry(`${this.baseUrl}/api/cost-centers/buildings`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return await this.handleResponse<{ costCenter: CostCenter; building: Building }>(response);
+  }
+
   // Cost Center Categories
   async getCostCenterCategories(): Promise<CostCenterCategory[]> {
     const response = await this.fetchWithRetry(`${this.baseUrl}/api/cost-center-categories`, {
@@ -2141,6 +2232,22 @@ class ApiService {
       headers: this.getAuthHeaders(),
     });
     await this.handleResponse<void>(response);
+  }
+
+  async getLatestSeasonForField(fieldId: string): Promise<{ seasonId: string; costCenterId: string } | null> {
+    try {
+      const response = await this.fetchWithRetry(`${this.baseUrl}/api/work-locations/${fieldId}/latest-season`, {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+      });
+      return await this.handleResponse<{ seasonId: string; costCenterId: string }>(response);
+    } catch (error) {
+      // Return null if no season found (404)
+      if (error instanceof Error && error.message.includes('404')) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   // Work location types (only SuperAdmin and OrgAdmin can create/update/delete)

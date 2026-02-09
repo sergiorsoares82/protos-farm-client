@@ -30,6 +30,7 @@ import { ProductShipments } from '@/pages/ProductShipments';
 import { MachineTypes } from '@/pages/MachineTypes';
 import { Machines } from '@/pages/Machines';
 import { Assets } from '@/pages/Assets';
+import { CostCenterManagement } from '@/pages/CostCenterManagement';
 import { Funcionarios } from '@/pages/Funcionarios';
 import { Proprietarios } from '@/pages/Proprietarios';
 import { Fazendas } from '@/pages/Fazendas';
@@ -140,6 +141,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <CostCenters />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/cost-centers-management"
+            element={
+              <ProtectedRoute>
+                <CostCenterManagement />
               </ProtectedRoute>
             }
           />

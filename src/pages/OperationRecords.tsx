@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { operationRecordService } from '@/services/operationRecordService';
-import { apiService } from '@/services/api';
+import { apiService, ItemType } from '@/services/api';
 import type {
   OperationRecord,
   CreateOperationRecordRequest,
@@ -18,20 +18,15 @@ import type {
   OperationRecordWorkerDTO,
   OperationRecordProductDTO,
   Operation,
+  Season,
   MachineItem,
   Asset,
   CostCenter,
   Item,
   UnitOfMeasure,
+  WorkLocation,
 } from '@/services/api';
 import { ClipboardList, Plus, Edit2, Trash2, AlertCircle, CheckCircle2, X } from 'lucide-react';
-
-interface Field {
-  id: string;
-  code: string;
-  name: string;
-  isActive: boolean;
-}
 
 interface Worker {
   id: string;
@@ -58,9 +53,10 @@ export const OperationRecords = () => {
 
   // Reference data
   const [operations, setOperations] = useState<Operation[]>([]);
+  const [seasons, setSeasons] = useState<Season[]>([]);
   const [machines, setMachines] = useState<MachineItem[]>([]);
   const [availableImplements, setAvailableImplements] = useState<Asset[]>([]);
-  const [fields, setFields] = useState<Field[]>([]);
+  const [workLocations, setWorkLocations] = useState<WorkLocation[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [products, setProducts] = useState<Item[]>([]);
@@ -69,6 +65,7 @@ export const OperationRecords = () => {
   // Form state
   const [formData, setFormData] = useState<CreateOperationRecordRequest>({
     serviceDate: new Date().toISOString().split('T')[0],
+    seasonId: '',
     operationId: '',
     machineId: '',
     horimeterStart: 0,
@@ -110,29 +107,25 @@ export const OperationRecords = () => {
   };
 
   const loadReferenceData = async () => {
-    const [ops, machs, assets, workLocs, ccs, persons, prods, units] = await Promise.all([
+    const [ops, sns, machs, assets, workLocs, ccs, persons, prods, units] = await Promise.all([
       apiService.getOperations(),
+      apiService.getSeasons(),
       apiService.getMachines(),
       apiService.getAssets(),
       apiService.getWorkLocations(),
       apiService.getCostCenters(),
       apiService.getPersons(),
-      apiService.getItems('PRODUCT'),
+      apiService.getItems(ItemType.PRODUCT),
       apiService.getUnitOfMeasures(),
     ]);
 
     setOperations(ops.filter(o => o.isActive));
+    setSeasons(sns.filter(s => s.isActive));
     setMachines(machs.filter(m => m.isActive));
     setAvailableImplements(assets.filter(a => a.assetKind === 'IMPLEMENT' && a.isActive));
     
-    // Filter work locations to get only active fields
-    const activeWorkLocations = workLocs.filter(w => w.isActive);
-    setFields(activeWorkLocations.map(w => ({
-      id: w.id,
-      code: w.code,
-      name: w.name,
-      isActive: w.isActive,
-    })));
+    // Store all active work locations
+    setWorkLocations(workLocs.filter(w => w.isActive));
     
     setCostCenters(ccs.filter(cc => cc.isActive));
     
@@ -154,8 +147,93 @@ export const OperationRecords = () => {
     setUnitOfMeasures(units.filter(u => u.isActive));
   };
 
+  // Helper function to check if selected location is a talhão
+  const isSelectedLocationTalhao = (): boolean => {
+    if (!formData.fieldId) return false;
+    const selectedLocation = workLocations.find(wl => wl.id === formData.fieldId);
+    return selectedLocation?.isTalhao || false;
+  };
+
+  // Helper function to get filtered operations based on cost center
+  const getFilteredOperations = (): Operation[] => {
+    if (!formData.costCenterId) {
+      return operations; // Return all operations if no cost center is selected
+    }
+
+    const selectedCostCenter = costCenters.find(cc => cc.id === formData.costCenterId);
+    if (!selectedCostCenter?.activityTypeId) {
+      return operations; // Return all operations if cost center has no activity type
+    }
+
+    // Filter operations that include the cost center's activity type
+    return operations.filter(op => 
+      op.activityTypeIds && op.activityTypeIds.includes(selectedCostCenter.activityTypeId!)
+    );
+  };
+
+  // Helper function to handle cost center change
+  const handleCostCenterChange = (costCenterId: string) => {
+    setFormData({
+      ...formData,
+      costCenterId,
+      // Clear operation if the currently selected operation is not compatible with the new cost center
+      operationId: (() => {
+        if (!formData.operationId) return '';
+        
+        const selectedCostCenter = costCenters.find(cc => cc.id === costCenterId);
+        if (!selectedCostCenter?.activityTypeId) return formData.operationId;
+
+        const selectedOperation = operations.find(op => op.id === formData.operationId);
+        if (!selectedOperation) return '';
+
+        // Check if the operation is compatible with the cost center's activity type
+        const isCompatible = selectedOperation.activityTypeIds?.includes(selectedCostCenter.activityTypeId);
+        return isCompatible ? formData.operationId : '';
+      })(),
+    });
+  };
+
+  // Helper function to handle field change
+  const handleFieldChange = async (fieldId: string) => {
+    const selectedLocation = workLocations.find(wl => wl.id === fieldId);
+    const isTalhao = selectedLocation?.isTalhao || false;
+    
+    // If it's a talhão, try to fetch the latest season
+    if (isTalhao) {
+      try {
+        const latestSeason = await apiService.getLatestSeasonForField(fieldId);
+        if (latestSeason) {
+          setFormData({
+            ...formData,
+            fieldId,
+            seasonId: latestSeason.seasonId,
+            costCenterId: latestSeason.costCenterId,
+          });
+          return;
+        }
+      } catch (error) {
+        console.error('Error fetching latest season:', error);
+        // Continue with normal flow if error occurs
+      }
+    }
+    
+    // Default behavior: clear season if not talhão
+    setFormData({
+      ...formData,
+      fieldId,
+      seasonId: isTalhao ? formData.seasonId : '',
+    });
+  };
+
   const validateForm = (): string | null => {
     if (!formData.serviceDate) return 'Service date is required';
+    if (!formData.fieldId) return 'Field is required';
+    
+    // Only require season if field is talhão
+    if (isSelectedLocationTalhao() && !formData.seasonId) {
+      return 'Season is required for talhão';
+    }
+    
     if (!formData.operationId) return 'Operation is required';
     if (!formData.machineId) return 'Machine is required';
     if (!formData.fieldId) return 'Field is required';
@@ -286,6 +364,7 @@ export const OperationRecords = () => {
   const resetForm = () => {
     setFormData({
       serviceDate: new Date().toISOString().split('T')[0],
+      seasonId: '',
       operationId: '',
       machineId: '',
       horimeterStart: 0,
@@ -311,6 +390,7 @@ export const OperationRecords = () => {
     setSelectedRecord(record);
     setFormData({
       serviceDate: record.serviceDate.split('T')[0],
+      seasonId: record.seasonId || '',
       operationId: record.operationId,
       machineId: record.machineId,
       horimeterStart: record.horimeterStart,
@@ -382,23 +462,8 @@ export const OperationRecords = () => {
   };
 
   const getFieldName = (id: string) => {
-    const f = fields.find(f => f.id === id);
-    return f ? `${f.code} - ${f.name}` : id;
-  };
-
-  const getWorkerName = (id: string) => {
-    const w = workers.find(w => w.id === id);
-    return w && w.person ? w.person.name : id;
-  };
-
-  const getProductName = (id: string) => {
-    const p = products.find(p => p.id === id);
-    return p ? p.name : id;
-  };
-
-  const getUnitName = (id: string) => {
-    const u = unitOfMeasures.find(u => u.id === id);
-    return u ? u.code : id;
+    const wl = workLocations.find(wl => wl.id === id);
+    return wl ? `${wl.code} - ${wl.name}` : id;
   };
 
   if (loading) {
@@ -534,7 +599,7 @@ export const OperationRecords = () => {
               {/* General Data */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">Dados Gerais</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                   <div>
                     <Label htmlFor="serviceDate">Data do Serviço *</Label>
                     <Input
@@ -546,16 +611,49 @@ export const OperationRecords = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="operationId">Operação *</Label>
-                    <Select value={formData.operationId} onValueChange={(value) => setFormData({ ...formData, operationId: value })}>
+                    <Label htmlFor="fieldId">Local/Talhão *</Label>
+                    <Select value={formData.fieldId} onValueChange={handleFieldChange}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma operação" />
+                        <SelectValue placeholder="Selecione um local" />
                       </SelectTrigger>
                       <SelectContent>
-                        {operations.map(op => (
-                          <SelectItem key={op.id} value={op.id}>
-                            {op.code} - {op.description}
+                        {workLocations.map(wl => (
+                          <SelectItem key={wl.id} value={wl.id}>
+                            {wl.code} - {wl.name} {wl.isTalhao && '(Talhão)'}
                           </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="seasonId">
+                      Safra {isSelectedLocationTalhao() && '*'}
+                      {!isSelectedLocationTalhao() && <span className="text-gray-400 text-sm ml-1">(selecione um talhão)</span>}
+                    </Label>
+                    <Select 
+                      value={formData.seasonId} 
+                      onValueChange={(value) => setFormData({ ...formData, seasonId: value })}
+                      disabled={!isSelectedLocationTalhao()}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={isSelectedLocationTalhao() ? "Selecione uma safra" : "Disponível apenas para talhão"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {seasons.map(s => (
+                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="costCenterId">Centro de Custo *</Label>
+                    <Select value={formData.costCenterId} onValueChange={handleCostCenterChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um centro de custo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {costCenters.map(cc => (
+                          <SelectItem key={cc.id} value={cc.id}>{cc.code} - {cc.description}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -563,6 +661,38 @@ export const OperationRecords = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="operationId">
+                      Operação *
+                      {formData.costCenterId && getFilteredOperations().length === 0 && (
+                        <span className="text-orange-500 text-sm ml-2">
+                          (Nenhuma operação disponível para este centro de custo)
+                        </span>
+                      )}
+                    </Label>
+                    <Select 
+                      value={formData.operationId} 
+                      onValueChange={(value) => setFormData({ ...formData, operationId: value })}
+                      disabled={!formData.costCenterId || getFilteredOperations().length === 0}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={
+                          !formData.costCenterId 
+                            ? "Selecione um centro de custo primeiro" 
+                            : getFilteredOperations().length === 0
+                            ? "Nenhuma operação disponível"
+                            : "Selecione uma operação"
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getFilteredOperations().map(op => (
+                          <SelectItem key={op.id} value={op.id}>
+                            {op.code} - {op.description}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div>
                     <Label htmlFor="machineId">Máquina *</Label>
                     <Select value={formData.machineId} onValueChange={(value) => setFormData({ ...formData, machineId: value })}>
@@ -576,6 +706,9 @@ export const OperationRecords = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="implementId">Implemento</Label>
                     <Select value={formData.implementId || 'none'} onValueChange={(value) => setFormData({ ...formData, implementId: value === 'none' ? '' : value })}>
@@ -610,35 +743,6 @@ export const OperationRecords = () => {
                       onChange={(value) => setFormData({ ...formData, horimeterEnd: value })}
                       placeholder="0.00"
                     />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="fieldId">Talhão *</Label>
-                    <Select value={formData.fieldId} onValueChange={(value) => setFormData({ ...formData, fieldId: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um talhão" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {fields.map(f => (
-                          <SelectItem key={f.id} value={f.id}>{f.code} - {f.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="costCenterId">Centro de Custo *</Label>
-                    <Select value={formData.costCenterId} onValueChange={(value) => setFormData({ ...formData, costCenterId: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um centro de custo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {costCenters.map(cc => (
-                          <SelectItem key={cc.id} value={cc.id}>{cc.code} - {cc.description}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </div>
                 </div>
 
@@ -801,7 +905,7 @@ export const OperationRecords = () => {
               {/* Same form as Create Dialog */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">Dados Gerais</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                   <div>
                     <Label htmlFor="edit-serviceDate">Data do Serviço *</Label>
                     <Input
@@ -813,16 +917,49 @@ export const OperationRecords = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="edit-operationId">Operação *</Label>
-                    <Select value={formData.operationId} onValueChange={(value) => setFormData({ ...formData, operationId: value })}>
+                    <Label htmlFor="edit-fieldId">Local/Talhão *</Label>
+                    <Select value={formData.fieldId} onValueChange={handleFieldChange}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma operação" />
+                        <SelectValue placeholder="Selecione um local" />
                       </SelectTrigger>
                       <SelectContent>
-                        {operations.map(op => (
-                          <SelectItem key={op.id} value={op.id}>
-                            {op.code} - {op.description}
+                        {workLocations.map(wl => (
+                          <SelectItem key={wl.id} value={wl.id}>
+                            {wl.code} - {wl.name} {wl.isTalhao && '(Talhão)'}
                           </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-seasonId">
+                      Safra {isSelectedLocationTalhao() && '*'}
+                      {!isSelectedLocationTalhao() && <span className="text-gray-400 text-sm ml-1">(selecione um talhão)</span>}
+                    </Label>
+                    <Select 
+                      value={formData.seasonId} 
+                      onValueChange={(value) => setFormData({ ...formData, seasonId: value })}
+                      disabled={!isSelectedLocationTalhao()}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={isSelectedLocationTalhao() ? "Selecione uma safra" : "Disponível apenas para talhão"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {seasons.map(s => (
+                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-costCenterId">Centro de Custo *</Label>
+                    <Select value={formData.costCenterId} onValueChange={handleCostCenterChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um centro de custo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {costCenters.map(cc => (
+                          <SelectItem key={cc.id} value={cc.id}>{cc.code} - {cc.description}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -830,6 +967,38 @@ export const OperationRecords = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-operationId">
+                      Operação *
+                      {formData.costCenterId && getFilteredOperations().length === 0 && (
+                        <span className="text-orange-500 text-sm ml-2">
+                          (Nenhuma operação disponível para este centro de custo)
+                        </span>
+                      )}
+                    </Label>
+                    <Select 
+                      value={formData.operationId} 
+                      onValueChange={(value) => setFormData({ ...formData, operationId: value })}
+                      disabled={!formData.costCenterId || getFilteredOperations().length === 0}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={
+                          !formData.costCenterId 
+                            ? "Selecione um centro de custo primeiro" 
+                            : getFilteredOperations().length === 0
+                            ? "Nenhuma operação disponível"
+                            : "Selecione uma operação"
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getFilteredOperations().map(op => (
+                          <SelectItem key={op.id} value={op.id}>
+                            {op.code} - {op.description}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div>
                     <Label htmlFor="edit-machineId">Máquina *</Label>
                     <Select value={formData.machineId} onValueChange={(value) => setFormData({ ...formData, machineId: value })}>
@@ -843,6 +1012,9 @@ export const OperationRecords = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="edit-implementId">Implemento</Label>
                     <Select value={formData.implementId || 'none'} onValueChange={(value) => setFormData({ ...formData, implementId: value === 'none' ? '' : value })}>
@@ -877,35 +1049,6 @@ export const OperationRecords = () => {
                       onChange={(value) => setFormData({ ...formData, horimeterEnd: value })}
                       placeholder="0.00"
                     />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="edit-fieldId">Talhão *</Label>
-                    <Select value={formData.fieldId} onValueChange={(value) => setFormData({ ...formData, fieldId: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um talhão" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {fields.map(f => (
-                          <SelectItem key={f.id} value={f.id}>{f.code} - {f.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-costCenterId">Centro de Custo *</Label>
-                    <Select value={formData.costCenterId} onValueChange={(value) => setFormData({ ...formData, costCenterId: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um centro de custo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {costCenters.map(cc => (
-                          <SelectItem key={cc.id} value={cc.id}>{cc.code} - {cc.description}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </div>
                 </div>
 
