@@ -84,6 +84,12 @@ export interface RolePermissionsResponse {
   permissions: Permission[];
 }
 
+export interface CustomRolePermissionsResponse {
+  roleId: string;
+  tenantId: string | null;
+  permissions: Permission[];
+}
+
 export interface CheckPermissionResponse {
   hasPermission: boolean;
   role: string;

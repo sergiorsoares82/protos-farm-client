@@ -25,11 +25,15 @@ import {
   CostCenter,
   CostCenterCategory,
   CostCenterType,
-  CostCenterKind,
+  CostCenterKindCategory,
   CreateCostCenterRequest,
 } from '@/services/api';
 
-export const GeneralCostCentersTab = () => {
+interface GeneralCostCentersTabProps {
+  kindCategory: CostCenterKindCategory;
+}
+
+export const GeneralCostCentersTab = ({ kindCategory }: GeneralCostCentersTabProps) => {
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [categories, setCategories] = useState<CostCenterCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,28 +43,23 @@ export const GeneralCostCentersTab = () => {
   const [formData, setFormData] = useState<CreateCostCenterRequest>({
     code: '',
     description: '',
-    kind: CostCenterKind.GENERAL,
+    kindCategoryId: kindCategory.id,
     type: CostCenterType.ADMINISTRATIVE,
   });
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [kindCategory.id]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [allCostCenters, cats] = await Promise.all([
-        apiService.getCostCenters(),
+      const [costCentersByKind, cats] = await Promise.all([
+        apiService.getCostCentersByKindCategoryId(kindCategory.id),
         apiService.getCostCenterCategories(),
       ]);
-
-      // Filter only general cost centers
-      const generalCostCenters = allCostCenters.filter(
-        (cc) => cc.kind === CostCenterKind.GENERAL
-      );
-      setCostCenters(generalCostCenters);
+      setCostCenters(costCentersByKind);
       setCategories(Array.isArray(cats) ? cats : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar dados');
@@ -72,7 +71,7 @@ export const GeneralCostCentersTab = () => {
   const handleCreate = async () => {
     try {
       setError(null);
-      await apiService.createCostCenter(formData);
+      await apiService.createCostCenter({ ...formData, kindCategoryId: kindCategory.id });
       setIsCreateDialogOpen(false);
       resetForm();
       await loadData();
@@ -85,7 +84,7 @@ export const GeneralCostCentersTab = () => {
     setFormData({
       code: '',
       description: '',
-      kind: CostCenterKind.GENERAL,
+      kindCategoryId: kindCategory.id,
       type: CostCenterType.ADMINISTRATIVE,
     });
   };

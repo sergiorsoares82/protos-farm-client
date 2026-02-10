@@ -25,11 +25,15 @@ import {
   CostCenter,
   CostCenterCategory,
   CostCenterType,
-  CostCenterKind,
+  CostCenterKindCategory,
   CreateBuildingWithCostCenterRequest,
 } from '@/services/api';
 
-export const BuildingsTab = () => {
+interface BuildingsTabProps {
+  kindCategory: CostCenterKindCategory;
+}
+
+export const BuildingsTab = ({ kindCategory }: BuildingsTabProps) => {
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [categories, setCategories] = useState<CostCenterCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,26 +45,22 @@ export const BuildingsTab = () => {
     name: '',
     description: '',
     type: CostCenterType.PRODUCTIVE,
+    kindCategoryId: kindCategory.id,
   });
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [kindCategory.id]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [allCostCenters, cats] = await Promise.all([
-        apiService.getCostCenters(),
+      const [costCentersByKind, cats] = await Promise.all([
+        apiService.getCostCentersByKindCategoryId(kindCategory.id),
         apiService.getCostCenterCategories(),
       ]);
-
-      // Filter only building cost centers
-      const buildingCostCenters = allCostCenters.filter(
-        (cc) => cc.kind === CostCenterKind.BUILDING
-      );
-      setCostCenters(buildingCostCenters);
+      setCostCenters(costCentersByKind);
       setCategories(Array.isArray(cats) ? cats : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar dados');
@@ -72,7 +72,7 @@ export const BuildingsTab = () => {
   const handleCreate = async () => {
     try {
       setError(null);
-      await apiService.createBuildingWithCostCenter(formData);
+      await apiService.createBuildingWithCostCenter({ ...formData, kindCategoryId: kindCategory.id });
       setIsCreateDialogOpen(false);
       resetForm();
       await loadData();
@@ -87,6 +87,7 @@ export const BuildingsTab = () => {
       name: '',
       description: '',
       type: CostCenterType.PRODUCTIVE,
+      kindCategoryId: kindCategory.id,
     });
   };
 

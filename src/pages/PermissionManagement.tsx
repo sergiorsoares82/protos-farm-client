@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,9 +9,11 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '../components/ui/badge';
 import { permissionService } from '@/services/permissionService';
+import { roleService } from '@/services/roleService';
 import { Permission, EntityType, PermissionAction, ENTITY_CATEGORIES } from '@/types/permission';
+import type { Role } from '@/types/role';
 import { UserRole, Organization, apiService } from '@/services/api';
-import { Shield, Search, Save, AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Building2 } from 'lucide-react';
+import { Shield, Search, Save, AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Building2, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '../components/ui/alert';
 
@@ -31,9 +34,20 @@ export const PermissionManagement = () => {
   const [allPermissions, setAllPermissions] = useState<Permission[]>([]);
   const [permissionMatrix, setPermissionMatrix] = useState<PermissionMatrix>({});
   
-  const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.USER);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const roleFromUrl = searchParams.get('role');
+  const roleIdFromUrl = searchParams.get('roleId');
+  const isCustomRoleMode = Boolean(roleIdFromUrl);
+  const initialRoleFromUrl = Object.values(UserRole).includes(roleFromUrl as UserRole)
+    ? (roleFromUrl as UserRole)
+    : UserRole.USER;
+  const [selectedRole, setSelectedRole] = useState<UserRole>(initialRoleFromUrl);
   const [rolePermissions, setRolePermissions] = useState<Set<string>>(new Set());
   const [initialPermissions, setInitialPermissions] = useState<Set<string>>(new Set());
+  
+  // Custom role: display name (from roles list)
+  const [customRoleInfo, setCustomRoleInfo] = useState<Role | null>(null);
+  const [roles, setRoles] = useState<Role[]>([]);
   
   // Organization selection (for SUPER_ADMIN)
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -45,6 +59,23 @@ export const PermissionManagement = () => {
 
   const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
   const isOrgAdmin = user?.role === UserRole.ORG_ADMIN;
+
+  // Sync selected role from URL when navigating from Role Management ("Editar permissões")
+  useEffect(() => {
+    if (!isCustomRoleMode && roleFromUrl && Object.values(UserRole).includes(roleFromUrl as UserRole)) {
+      setSelectedRole(roleFromUrl as UserRole);
+    }
+  }, [roleFromUrl, isCustomRoleMode]);
+
+  const handleRoleTabChange = (value: string) => {
+    const newRole = value as UserRole;
+    setSelectedRole(newRole);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('role', newRole);
+      return next;
+    });
+  };
 
   // Only SUPER_ADMIN and ORG_ADMIN can access this page
   useEffect(() => {
@@ -61,10 +92,33 @@ export const PermissionManagement = () => {
   }, [isSuperAdmin]);
 
   useEffect(() => {
-    if (allPermissions.length > 0) {
+    if (isCustomRoleMode && roleIdFromUrl) {
+      roleService.getAllRoles().then(setRoles);
+    }
+  }, [isCustomRoleMode, roleIdFromUrl]);
+
+  useEffect(() => {
+    if (allPermissions.length === 0) return;
+    if (isCustomRoleMode && roleIdFromUrl) {
+      const tenantId = isSuperAdmin ? (selectedTenantId || undefined) : undefined;
+      permissionService
+        .getCustomRolePermissions(roleIdFromUrl, tenantId)
+        .then((res) => {
+          const permIds = new Set(res.permissions.map((p) => p.id));
+          setRolePermissions(permIds);
+          setInitialPermissions(new Set(permIds));
+        })
+        .catch((err: any) => setError(err.message || 'Failed to load custom role permissions'));
+    } else if (!isCustomRoleMode) {
       loadRolePermissions(selectedRole, selectedTenantId || undefined);
     }
-  }, [selectedRole, selectedTenantId, allPermissions]);
+  }, [selectedRole, selectedTenantId, allPermissions.length, isCustomRoleMode, roleIdFromUrl, isSuperAdmin]);
+
+  useEffect(() => {
+    if (roleIdFromUrl && roles.length > 0) {
+      setCustomRoleInfo(roles.find((r) => r.id === roleIdFromUrl) ?? null);
+    }
+  }, [roleIdFromUrl, roles]);
 
   const loadPermissions = async () => {
     try {
@@ -173,21 +227,30 @@ export const PermissionManagement = () => {
       setError(null);
       setSuccess(null);
       
-      await permissionService.updateRolePermissions(
-        selectedRole,
-        Array.from(rolePermissions),
-        selectedTenantId || undefined
-      );
+      if (isCustomRoleMode && roleIdFromUrl) {
+        const tenantId = isSuperAdmin ? (selectedTenantId || undefined) : undefined;
+        await permissionService.updateCustomRolePermissions(
+          roleIdFromUrl,
+          Array.from(rolePermissions),
+          tenantId
+        );
+        setInitialPermissions(new Set(rolePermissions));
+        setSuccess(
+          `Permissões atualizadas para o role ${customRoleInfo?.displayName ?? roleIdFromUrl}.`
+        );
+      } else {
+        await permissionService.updateRolePermissions(
+          selectedRole,
+          Array.from(rolePermissions),
+          selectedTenantId || undefined
+        );
+        setInitialPermissions(new Set(rolePermissions));
+        const tenantInfo = selectedTenantId
+          ? ` for organization ${organizations.find((o) => o.id === selectedTenantId)?.name || selectedTenantId}`
+          : ' (system-wide)';
+        setSuccess(`Permissions updated successfully for ${selectedRole}${tenantInfo}`);
+      }
       
-      setInitialPermissions(new Set(rolePermissions));
-      
-      const tenantInfo = selectedTenantId 
-        ? ` for organization ${organizations.find(o => o.id === selectedTenantId)?.name || selectedTenantId}`
-        : ' (system-wide)';
-      
-      setSuccess(`Permissions updated successfully for ${selectedRole}${tenantInfo}`);
-      
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
       setError(err.message || 'Failed to update permissions');
@@ -276,13 +339,41 @@ export const PermissionManagement = () => {
     <Layout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Shield className="h-8 w-8" />
-            Permission Management
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Configure granular permissions for each user role. Changes affect all users with the selected role.
-          </p>
+          <div className="flex items-center gap-4">
+            {isCustomRoleMode && (
+              <Button variant="ghost" size="sm" asChild className="shrink-0">
+                <Link to="/roles" className="flex items-center gap-1">
+                  <ArrowLeft className="h-4 w-4" />
+                  Voltar
+                </Link>
+              </Button>
+            )}
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                <Shield className="h-8 w-8" />
+                {isCustomRoleMode ? 'Permissões do role' : 'Permission Management'}
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                {isCustomRoleMode ? (
+                  <>
+                    A configurar permissões para o role{' '}
+                    <span className="font-semibold">{customRoleInfo?.displayName ?? roleIdFromUrl}</span>.
+                    {' '}
+                    <Link to="/roles" className="text-primary font-medium underline hover:no-underline">
+                      Ver todos os roles
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    Configure as permissões de cada role (Super Admin, Org Admin, User). As alterações afetam todos os utilizadores com o role selecionado. Pode gerir os roles em{' '}
+                    <Link to="/roles" className="text-primary font-medium underline hover:no-underline">
+                      Gestão de Roles
+                    </Link>.
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
         </div>
 
         {error && (
@@ -301,17 +392,21 @@ export const PermissionManagement = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Role Permissions</CardTitle>
+            <CardTitle>
+              {isCustomRoleMode ? `Permissões: ${customRoleInfo?.displayName ?? roleIdFromUrl}` : 'Role Permissions'}
+            </CardTitle>
             <CardDescription>
-              {isSuperAdmin 
-                ? 'Select a role and organization to view and edit permissions.'
-                : 'Manage permissions for USER role in your organization.'
-              } Total permissions: {allPermissions.length}
+              {isCustomRoleMode
+                ? `Total de permissões disponíveis: ${allPermissions.length}`
+                : isSuperAdmin
+                  ? 'Select a role and organization to view and edit permissions.'
+                  : 'Manage permissions for USER role in your organization.'}
+              {!isCustomRoleMode && ` Total permissions: ${allPermissions.length}`}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Organization Selector (SUPER_ADMIN only) */}
-            {isSuperAdmin && (
+            {/* Organization Selector (SUPER_ADMIN only, hide in custom role mode) */}
+            {isSuperAdmin && !isCustomRoleMode && (
               <div className="mb-6 p-4 border rounded-lg bg-gray-50">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2 flex-1">
@@ -347,29 +442,34 @@ export const PermissionManagement = () => {
               </div>
             )}
 
-            <Tabs value={selectedRole} onValueChange={(value) => setSelectedRole(value as UserRole)}>
-              <TabsList className="grid w-full grid-cols-3 mb-6">
-                <TabsTrigger 
-                  value={UserRole.SUPER_ADMIN} 
-                  className="flex items-center gap-2"
-                  disabled={isOrgAdmin}
-                >
-                  <Shield className="h-4 w-4" />
-                  Super Admin
-                </TabsTrigger>
-                <TabsTrigger 
-                  value={UserRole.ORG_ADMIN} 
-                  className="flex items-center gap-2"
-                  disabled={isOrgAdmin}
-                >
-                  <Shield className="h-4 w-4" />
-                  Org Admin
-                </TabsTrigger>
-                <TabsTrigger value={UserRole.USER} className="flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  User
-                </TabsTrigger>
-              </TabsList>
+            <Tabs
+              value={isCustomRoleMode ? 'custom' : selectedRole}
+              onValueChange={isCustomRoleMode ? undefined : handleRoleTabChange}
+            >
+              {!isCustomRoleMode && (
+                <TabsList className="grid w-full grid-cols-3 mb-6">
+                  <TabsTrigger 
+                    value={UserRole.SUPER_ADMIN} 
+                    className="flex items-center gap-2"
+                    disabled={isOrgAdmin}
+                  >
+                    <Shield className="h-4 w-4" />
+                    Super Admin
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value={UserRole.ORG_ADMIN} 
+                    className="flex items-center gap-2"
+                    disabled={isOrgAdmin}
+                  >
+                    <Shield className="h-4 w-4" />
+                    Org Admin
+                  </TabsTrigger>
+                  <TabsTrigger value={UserRole.USER} className="flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    User
+                  </TabsTrigger>
+                </TabsList>
+              )}
 
               <div className="space-y-4">
                 {/* Search and Actions */}
@@ -423,27 +523,29 @@ export const PermissionManagement = () => {
                   </div>
                   
                   {/* Context Info */}
-                  <div className="mt-4 pt-4 border-t text-center">
-                    <div className="text-sm text-gray-600">
-                      Managing: <span className="font-semibold">{selectedRole}</span>
-                      {isSuperAdmin && (
-                        <>
-                          {' '} for{' '}
-                          <span className="font-semibold">
-                            {selectedTenantId 
-                              ? organizations.find(o => o.id === selectedTenantId)?.name || 'Selected Org'
-                              : 'All Organizations (System-wide)'}
-                          </span>
-                        </>
-                      )}
-                      {isOrgAdmin && (
-                        <>
-                          {' '} for{' '}
-                          <span className="font-semibold">Your Organization</span>
-                        </>
-                      )}
+                  {!isCustomRoleMode && (
+                    <div className="mt-4 pt-4 border-t text-center">
+                      <div className="text-sm text-gray-600">
+                        Managing: <span className="font-semibold">{selectedRole}</span>
+                        {isSuperAdmin && (
+                          <>
+                            {' '} for{' '}
+                            <span className="font-semibold">
+                              {selectedTenantId 
+                                ? organizations.find(o => o.id === selectedTenantId)?.name || 'Selected Org'
+                                : 'All Organizations (System-wide)'}
+                            </span>
+                          </>
+                        )}
+                        {isOrgAdmin && (
+                          <>
+                            {' '} for{' '}
+                            <span className="font-semibold">Your Organization</span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Permission Matrix */}

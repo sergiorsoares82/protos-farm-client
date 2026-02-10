@@ -30,6 +30,7 @@ import {
   Repeat,
   Sprout,
   Activity,
+  Layers,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -132,6 +133,12 @@ const financialMenuItems: NavItem[] = [
     name: 'Cost Center Categories',
     path: '/cost-center-categories',
     icon: Tags,
+    roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
+  },
+  {
+    name: 'Categorias de centros de custo',
+    path: '/cost-center-kind-categories',
+    icon: Layers,
     roles: [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN],
   },
   { name: 'Cost Centers', path: '/cost-centers', icon: Wallet, roles: 'all' },

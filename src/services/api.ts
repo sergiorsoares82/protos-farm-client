@@ -658,6 +658,35 @@ export enum CostCenterKind {
   GENERAL = 'GENERAL',
 }
 
+export type CostCenterKindCategoryType = 'machine' | 'building' | 'general';
+
+export interface CostCenterKindCategory {
+  id: string;
+  tenantId: string;
+  code: string;
+  name: string;
+  type: CostCenterKindCategoryType;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCostCenterKindCategoryRequest {
+  code: string;
+  name: string;
+  type: CostCenterKindCategoryType;
+  sortOrder?: number;
+}
+
+export interface UpdateCostCenterKindCategoryRequest {
+  code?: string;
+  name?: string;
+  type?: CostCenterKindCategoryType;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
 export interface CostCenter {
   id: string;
   tenantId: string;
@@ -665,6 +694,7 @@ export interface CostCenter {
   name?: string;
   description: string;
   kind: CostCenterKind;
+  kindCategoryId?: string;
   type: CostCenterType;
   hasTechnicalData: boolean;
   acquisitionDate?: string;
@@ -673,20 +703,38 @@ export interface CostCenter {
   categoryId?: string;
   assetId?: string;
   activityTypeId?: string;
+  parentId?: string | null;
+  relatedFieldId?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CostCenterTreeNode {
+  id: string;
+  parentId: string | null;
+  code: string;
+  name?: string | null;
+  description: string;
+  kind: string;
+  type: string;
+  nivel: number;
+  custoDireto: number;
+  custoTotal: number;
+  temFilhos: boolean;
 }
 
 export interface CreateCostCenterRequest {
   code: string;
   name?: string;
   description: string;
-  kind?: CostCenterKind;
+  kindCategoryId: string;
   type: CostCenterType;
   categoryId?: string;
   assetId?: string;
   activityTypeId?: string;
+  parentId?: string;
+  relatedFieldId?: string;
   acquisitionDate?: string;
   acquisitionValue?: number;
   currentValue?: number;
@@ -696,11 +744,13 @@ export interface UpdateCostCenterRequest {
   code?: string;
   name?: string;
   description?: string;
-  kind?: CostCenterKind;
+  kindCategoryId?: string;
   type?: CostCenterType;
   categoryId?: string;
   assetId?: string;
   activityTypeId?: string;
+  parentId?: string | null;
+  relatedFieldId?: string | null;
   acquisitionDate?: string;
   acquisitionValue?: number;
   currentValue?: number;
@@ -712,6 +762,7 @@ export interface CreateMachineWithCostCenterRequest {
   name: string;
   description: string;
   type: CostCenterType;
+  kindCategoryId: string;
   categoryId?: string;
   acquisitionDate?: string;
   acquisitionValue?: number;
@@ -729,6 +780,7 @@ export interface CreateBuildingWithCostCenterRequest {
   name: string;
   description: string;
   type: string;
+  kindCategoryId: string;
   categoryId?: string;
   acquisitionDate?: string;
   acquisitionValue?: number;
@@ -2091,6 +2143,33 @@ class ApiService {
     return await this.handleResponse<CostCenter[]>(response);
   }
 
+  async getCostCentersByKindCategoryId(kindCategoryId: string): Promise<CostCenter[]> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/cost-centers/by-kind-category/${encodeURIComponent(kindCategoryId)}`,
+      {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+      },
+    );
+    return await this.handleResponse<CostCenter[]>(response);
+  }
+
+  /** Árvore de centros de custo com custo direto e custo total no período. */
+  async getCostCenterTreeWithCosts(
+    fromDate: string,
+    toDate: string
+  ): Promise<CostCenterTreeNode[]> {
+    const params = new URLSearchParams({ from: fromDate, to: toDate });
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/cost-centers/tree-with-costs?${params}`,
+      {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+      },
+    );
+    return await this.handleResponse<CostCenterTreeNode[]>(response);
+  }
+
   async getCostCenter(id: string): Promise<CostCenter> {
     const response = await this.fetchWithRetry(`${this.baseUrl}/api/cost-centers/${id}`, {
       method: 'GET',
@@ -2196,6 +2275,70 @@ class ApiService {
     await this.handleResponse<void>(response);
   }
 
+  // Cost Center Kind Categories (Máquinas, Benfeitorias, Gerais, etc.)
+  async getCostCenterKindCategories(): Promise<CostCenterKindCategory[]> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/cost-center-kind-categories`,
+      {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+      },
+    );
+    const data = await this.handleResponse<{
+      success: boolean;
+      data: CostCenterKindCategory[];
+    }>(response);
+    return data.data;
+  }
+
+  async createCostCenterKindCategory(
+    category: CreateCostCenterKindCategoryRequest,
+  ): Promise<CostCenterKindCategory> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/cost-center-kind-categories`,
+      {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(category),
+      },
+    );
+    const res = await this.handleResponse<{
+      success: boolean;
+      data: CostCenterKindCategory;
+    }>(response);
+    return res.data;
+  }
+
+  async updateCostCenterKindCategory(
+    id: string,
+    updates: UpdateCostCenterKindCategoryRequest,
+  ): Promise<CostCenterKindCategory> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/cost-center-kind-categories/${id}`,
+      {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(updates),
+      },
+    );
+    const res = await this.handleResponse<{
+      success: boolean;
+      data: CostCenterKindCategory;
+    }>(response);
+    return res.data;
+  }
+
+  async deleteCostCenterKindCategory(id: string): Promise<void> {
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/cost-center-kind-categories/${id}`,
+      {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+      },
+    );
+    await this.handleResponse<void>(response);
+  }
+
   // Work locations (Locais de Trabalho: talhões, galpões, ordenha, fábrica de ração, etc.)
   async getWorkLocations(): Promise<WorkLocation[]> {
     const response = await this.fetchWithRetry(`${this.baseUrl}/api/work-locations`, {
@@ -2232,6 +2375,28 @@ class ApiService {
       headers: this.getAuthHeaders(),
     });
     await this.handleResponse<void>(response);
+  }
+
+  /** Contexto de operação: cultura/safra ativa no talhão na data (para exibir em readonly). */
+  async getOperationContext(
+    workLocationId: string,
+    date: string,
+  ): Promise<{
+    costCenterId: string | null;
+    costCenterName?: string;
+    seasonName?: string;
+    cultureLabel?: string;
+    message?: string;
+  }> {
+    const params = new URLSearchParams({ date });
+    const response = await this.fetchWithRetry(
+      `${this.baseUrl}/api/work-locations/${workLocationId}/operation-context?${params}`,
+      {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+      },
+    );
+    return await this.handleResponse(response);
   }
 
   async getLatestSeasonForField(fieldId: string): Promise<{ seasonId: string; costCenterId: string } | null> {

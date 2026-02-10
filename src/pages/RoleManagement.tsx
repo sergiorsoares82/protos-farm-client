@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { roleService } from '@/services/roleService';
 import type { Role, CreateRoleRequest, UpdateRoleRequest } from '@/types/role';
 import { UserRole } from '@/services/api';
-import { Shield, Plus, Edit2, Trash2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Shield, Plus, Edit2, Trash2, AlertCircle, CheckCircle2, KeyRound } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const RoleManagement = () => {
@@ -38,6 +39,7 @@ export const RoleManagement = () => {
 
   const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
   const isOrgAdmin = user?.role === UserRole.ORG_ADMIN;
+  const roleCanEditPermissions = isSuperAdmin || isOrgAdmin;
 
   // Only SUPER_ADMIN and ORG_ADMIN can access
   useEffect(() => {
@@ -159,6 +161,12 @@ export const RoleManagement = () => {
   const systemRoles = roles.filter(r => r.isSystem);
   const customRoles = roles.filter(r => !r.isSystem);
 
+  /** Link to edit permissions: system roles use ?role=, custom roles use ?roleId= */
+  const permissionsLink = (role: Role) =>
+    role.isSystem && [UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN, UserRole.USER].includes(role.name as UserRole)
+      ? `/permissions?role=${encodeURIComponent(role.name)}`
+      : `/permissions?roleId=${encodeURIComponent(role.id)}`;
+
   if (loading) {
     return (
       <Layout>
@@ -268,6 +276,17 @@ export const RoleManagement = () => {
                     <Button
                       variant="outline"
                       size="sm"
+                      asChild
+                      className="flex items-center gap-1"
+                    >
+                      <Link to={permissionsLink(role)}>
+                        <KeyRound className="h-3 w-3" />
+                        Editar permissões
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => openEditDialog(role)}
                       className="flex items-center gap-1"
                     >
@@ -314,6 +333,17 @@ export const RoleManagement = () => {
                       <p className="text-gray-700 text-sm">{role.description}</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className="flex items-center gap-1"
+                      >
+                        <Link to={permissionsLink(role)}>
+                          <KeyRound className="h-3 w-3" />
+                          Editar permissões
+                        </Link>
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"

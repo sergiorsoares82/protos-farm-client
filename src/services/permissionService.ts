@@ -1,5 +1,5 @@
 import { apiService } from './api';
-import type { Permission, RolePermissionsResponse, CheckPermissionResponse } from '../types/permission';
+import type { Permission, RolePermissionsResponse, CustomRolePermissionsResponse, CheckPermissionResponse } from '../types/permission';
 
 class PermissionService {
   /**
@@ -49,6 +49,41 @@ class PermissionService {
     
     const response = await apiService['fetchWithRetry'](
       `${(apiService as any).baseUrl}/api/permissions/roles/${role}`,
+      {
+        method: 'PUT',
+        headers: (apiService as any).getAuthHeaders(),
+        body: JSON.stringify(body),
+      }
+    );
+    await (apiService as any).handleResponse(response) as { success: boolean };
+  }
+
+  /**
+   * Get permissions for a custom role (by role entity id)
+   */
+  async getCustomRolePermissions(roleId: string, tenantId?: string): Promise<CustomRolePermissionsResponse> {
+    const params = tenantId ? `?tenantId=${tenantId}` : '';
+    const response = await apiService['fetchWithRetry'](
+      `${(apiService as any).baseUrl}/api/permissions/roles/custom/${roleId}${params}`,
+      {
+        method: 'GET',
+        headers: (apiService as any).getAuthHeaders(),
+      }
+    );
+    const data = (await (apiService as any).handleResponse(response)) as { success: boolean; data: CustomRolePermissionsResponse };
+    return data.data;
+  }
+
+  /**
+   * Update permissions for a custom role
+   */
+  async updateCustomRolePermissions(roleId: string, permissionIds: string[], tenantId?: string): Promise<void> {
+    const body: any = { permissionIds };
+    if (tenantId) {
+      body.tenantId = tenantId;
+    }
+    const response = await apiService['fetchWithRetry'](
+      `${(apiService as any).baseUrl}/api/permissions/roles/custom/${roleId}`,
       {
         method: 'PUT',
         headers: (apiService as any).getAuthHeaders(),

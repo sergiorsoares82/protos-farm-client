@@ -13,6 +13,7 @@ import { CostCenters } from '@/pages/CostCenters';
 import { ManagementAccounts } from '@/pages/ManagementAccounts';
 import { BankAccounts } from '@/pages/BankAccounts';
 import { CostCenterCategories } from '@/pages/CostCenterCategories';
+import { CostCenterKindCategories } from '@/pages/CostCenterKindCategories';
 import { Fields } from '@/pages/Fields';
 import { WorkLocationTypes } from '@/pages/WorkLocationTypes';
 import { ActivityTypes } from '@/pages/ActivityTypes';
@@ -173,6 +174,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <CostCenterCategories />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/cost-center-kind-categories"
+            element={
+              <ProtectedRoute>
+                <CostCenterKindCategories />
               </ProtectedRoute>
             }
           />

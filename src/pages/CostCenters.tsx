@@ -26,7 +26,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Building2, Plus, Pencil, Trash2, AlertCircle } from 'lucide-react';
-import { apiService, CostCenter, CostCenterType, CreateCostCenterRequest, UpdateCostCenterRequest, CostCenterCategory, ActivityType } from '@/services/api';
+import { apiService, CostCenter, CostCenterType, CreateCostCenterRequest, UpdateCostCenterRequest, CostCenterCategory, CostCenterKindCategory, ActivityType } from '@/services/api';
 
 export const CostCenters = () => {
     const [items, setItems] = useState<CostCenter[]>([]);
@@ -36,12 +36,14 @@ export const CostCenters = () => {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<CostCenter | null>(null);
     const [categories, setCategories] = useState<CostCenterCategory[]>([]);
+    const [kindCategories, setKindCategories] = useState<CostCenterKindCategory[]>([]);
     const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
 
     // Form state
     const [formData, setFormData] = useState<CreateCostCenterRequest>({
         code: '',
         description: '',
+        kindCategoryId: '',
         type: CostCenterType.ADMINISTRATIVE,
     });
 
@@ -77,10 +79,20 @@ export const CostCenters = () => {
         }
     };
 
+    const loadKindCategories = async () => {
+        try {
+            const data = await apiService.getCostCenterKindCategories();
+            setKindCategories(data.filter((c) => c.isActive));
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to load kind categories');
+        }
+    };
+
     useEffect(() => {
         loadItems();
         loadCategories();
         loadActivityTypes();
+        loadKindCategories();
     }, []);
 
     // Validate form
@@ -90,6 +102,9 @@ export const CostCenters = () => {
         }
         if (!formData.description.trim()) {
             return 'Description is required';
+        }
+        if (!formData.kindCategoryId) {
+            return 'Categoria de centro de custo é obrigatória';
         }
         return null;
     };
@@ -129,6 +144,7 @@ export const CostCenters = () => {
                 code: formData.code,
                 description: formData.description,
                 type: formData.type,
+                kindCategoryId: formData.kindCategoryId || undefined,
                 categoryId: formData.categoryId,
                 activityTypeId: formData.activityTypeId,
             };
@@ -168,13 +184,14 @@ export const CostCenters = () => {
 
     // Reset form
     const resetForm = () => {
+        const defaultKindId = kindCategories.length > 0 ? kindCategories[0].id : '';
         setFormData({
             code: '',
             description: '',
+            kindCategoryId: defaultKindId,
             type: CostCenterType.ADMINISTRATIVE,
         });
     };
-
 
     // Open edit dialog
     const openEditDialog = (item: CostCenter) => {
@@ -182,6 +199,7 @@ export const CostCenters = () => {
         setFormData({
             code: item.code,
             description: item.description,
+            kindCategoryId: item.kindCategoryId ?? '',
             type: item.type,
             categoryId: item.categoryId,
             activityTypeId: item.activityTypeId,
@@ -324,6 +342,26 @@ export const CostCenters = () => {
                                 />
                             </div>
                             <div className="space-y-2">
+                                <Label htmlFor="kindCategory">Categoria (tipo) *</Label>
+                                <Select
+                                    value={formData.kindCategoryId || '__none__'}
+                                    onValueChange={(value) =>
+                                        setFormData({ ...formData, kindCategoryId: value === '__none__' ? '' : value })
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecione a categoria" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {kindCategories.map((kc) => (
+                                            <SelectItem key={kc.id} value={kc.id}>
+                                                {kc.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
                                 <Label htmlFor="type">Type *</Label>
                                 <Select
                                     value={formData.type}
@@ -404,7 +442,7 @@ export const CostCenters = () => {
                             <Button variant="outline" onClick={() => { setIsCreateDialogOpen(false); resetForm(); setError(null); }}>
                                 Cancel
                             </Button>
-                            <Button onClick={handleCreate} disabled={!formData.code || !formData.description}>
+                            <Button onClick={handleCreate} disabled={!formData.code || !formData.description || !formData.kindCategoryId}>
                                 Create Cost Center
                             </Button>
                         </DialogFooter>
@@ -436,6 +474,26 @@ export const CostCenters = () => {
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                 />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-kindCategory">Categoria (tipo) *</Label>
+                                <Select
+                                    value={formData.kindCategoryId || '__none__'}
+                                    onValueChange={(value) =>
+                                        setFormData({ ...formData, kindCategoryId: value === '__none__' ? '' : value })
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecione a categoria" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {kindCategories.map((kc) => (
+                                            <SelectItem key={kc.id} value={kc.id}>
+                                                {kc.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="edit-type">Type *</Label>

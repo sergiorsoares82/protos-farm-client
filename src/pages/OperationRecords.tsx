@@ -9,6 +9,7 @@ import { DecimalInput } from '@/components/ui/decimal-input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CostCenterSelectWithPath } from '@/components/cost-centers/CostCenterSelectWithPath';
 import { operationRecordService } from '@/services/operationRecordService';
 import { apiService, ItemType } from '@/services/api';
 import type {
@@ -82,9 +83,38 @@ export const OperationRecords = () => {
   const [formWorkers, setFormWorkers] = useState<OperationRecordWorkerDTO[]>([]);
   const [formProducts, setFormProducts] = useState<OperationRecordProductDTO[]>([]);
 
+  // Operation context (cultura/safra ativa no talhão na data) - readonly feedback
+  const [operationContext, setOperationContext] = useState<{
+    costCenterId: string | null;
+    costCenterName?: string;
+    seasonName?: string;
+    cultureLabel?: string;
+    message?: string;
+  } | null>(null);
+
   useEffect(() => {
     loadData();
   }, []);
+
+  // Fetch operation context when field + date are set (debounced)
+  useEffect(() => {
+    if (!formData.fieldId || !formData.serviceDate) {
+      setOperationContext(null);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const ctx = await apiService.getOperationContext(formData.fieldId, formData.serviceDate);
+        setOperationContext(ctx);
+        if (ctx.costCenterId) {
+          setFormData((prev) => (prev.costCenterId ? prev : { ...prev, costCenterId: ctx.costCenterId! }));
+        }
+      } catch {
+        setOperationContext({ costCenterId: null, message: 'Erro ao carregar contexto' });
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [formData.fieldId, formData.serviceDate]);
 
   const loadData = async () => {
     try {
@@ -647,18 +677,29 @@ export const OperationRecords = () => {
                   </div>
                   <div>
                     <Label htmlFor="costCenterId">Centro de Custo *</Label>
-                    <Select value={formData.costCenterId} onValueChange={handleCostCenterChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um centro de custo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {costCenters.map(cc => (
-                          <SelectItem key={cc.id} value={cc.id}>{cc.code} - {cc.description}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <CostCenterSelectWithPath
+                      costCenters={costCenters}
+                      value={formData.costCenterId}
+                      onChange={handleCostCenterChange}
+                      placeholder="Selecione ou busque um centro de custo"
+                    />
                   </div>
                 </div>
+
+                {operationContext !== null && (
+                  <div className="rounded-md border bg-muted/50 px-3 py-2 text-sm">
+                    <span className="font-medium text-muted-foreground">Contexto: </span>
+                    {operationContext.costCenterId ? (
+                      <span>
+                        {operationContext.seasonName} – {operationContext.cultureLabel ?? operationContext.costCenterName}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {operationContext.message ?? 'Nenhuma cultura ativa nesta data neste talhão'}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -953,18 +994,29 @@ export const OperationRecords = () => {
                   </div>
                   <div>
                     <Label htmlFor="edit-costCenterId">Centro de Custo *</Label>
-                    <Select value={formData.costCenterId} onValueChange={handleCostCenterChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um centro de custo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {costCenters.map(cc => (
-                          <SelectItem key={cc.id} value={cc.id}>{cc.code} - {cc.description}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <CostCenterSelectWithPath
+                      costCenters={costCenters}
+                      value={formData.costCenterId}
+                      onChange={handleCostCenterChange}
+                      placeholder="Selecione ou busque um centro de custo"
+                    />
                   </div>
                 </div>
+
+                {operationContext !== null && (
+                  <div className="rounded-md border bg-muted/50 px-3 py-2 text-sm">
+                    <span className="font-medium text-muted-foreground">Contexto: </span>
+                    {operationContext.costCenterId ? (
+                      <span>
+                        {operationContext.seasonName} – {operationContext.cultureLabel ?? operationContext.costCenterName}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {operationContext.message ?? 'Nenhuma cultura ativa nesta data neste talhão'}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>

@@ -26,11 +26,15 @@ import {
   MachineType,
   CostCenterCategory,
   CostCenterType,
-  CostCenterKind,
+  CostCenterKindCategory,
   CreateMachineWithCostCenterRequest,
 } from '@/services/api';
 
-export const MachinesTab = () => {
+interface MachinesTabProps {
+  kindCategory: CostCenterKindCategory;
+}
+
+export const MachinesTab = ({ kindCategory }: MachinesTabProps) => {
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [machineTypes, setMachineTypes] = useState<MachineType[]>([]);
   const [categories, setCategories] = useState<CostCenterCategory[]>([]);
@@ -43,28 +47,24 @@ export const MachinesTab = () => {
     name: '',
     description: '',
     type: CostCenterType.PRODUCTIVE,
+    kindCategoryId: kindCategory.id,
     machineTypeId: '',
   });
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [kindCategory.id]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [allCostCenters, types, cats] = await Promise.all([
-        apiService.getCostCenters(),
+      const [costCentersByKind, types, cats] = await Promise.all([
+        apiService.getCostCentersByKindCategoryId(kindCategory.id),
         apiService.getMachineTypes(),
         apiService.getCostCenterCategories(),
       ]);
-      
-      // Filter only machine cost centers
-      const machineCostCenters = allCostCenters.filter(
-        (cc) => cc.kind === CostCenterKind.MACHINE
-      );
-      setCostCenters(machineCostCenters);
+      setCostCenters(costCentersByKind);
       setMachineTypes(types.filter((t) => t.isActive));
       setCategories(Array.isArray(cats) ? cats : []);
     } catch (err) {
@@ -77,7 +77,7 @@ export const MachinesTab = () => {
   const handleCreate = async () => {
     try {
       setError(null);
-      await apiService.createMachineWithCostCenter(formData);
+      await apiService.createMachineWithCostCenter({ ...formData, kindCategoryId: kindCategory.id });
       setIsCreateDialogOpen(false);
       resetForm();
       await loadData();
@@ -92,6 +92,7 @@ export const MachinesTab = () => {
       name: '',
       description: '',
       type: CostCenterType.PRODUCTIVE,
+      kindCategoryId: kindCategory.id,
       machineTypeId: '',
     });
   };
